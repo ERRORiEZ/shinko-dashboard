@@ -124,7 +124,7 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ + Event Summary ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ + หน่วย ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -140,6 +140,24 @@ else:
             exclude_cols = ['id', 'created_at', 'date_only']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
+            # ฟังก์ชันช่วยจับคู่ชื่อคอลัมน์กับหน่วยวัดอัตโนมัติ
+            def get_unit(col_name):
+                name = col_name.lower()
+                if 'temp' in name:
+                    return "°C"
+                elif 'press' in name or 'pressure' in name:
+                    return "bar"
+                elif 'speed' in name or 'rpm' in name:
+                    return "RPM"
+                elif 'watt' in name or 'power' in name or 'generator' in name:
+                    return "kW"
+                elif 'rate' in name:
+                    return "%"
+                elif 'flow' in name:
+                    return "m³/h"
+                else:
+                    return ""
+
             num_columns = 4
             for i in range(0, len(all_sensor_cols), num_columns):
                 cols = st.columns(num_columns)
@@ -149,16 +167,17 @@ else:
                         val = latest_data[col_name]
                         
                         display_title = str(col_name).replace('_', ' ').title()
+                        unit = get_unit(col_name)
                         
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
                             display_val = "N/A"
                         elif isinstance(val, (int, float)):
                             if val % 1 != 0:
-                                display_val = f"{val:,.2f}"
+                                display_val = f"{val:,.2f} {unit}".strip()
                             else:
-                                display_val = f"{val:,.0f}"
+                                display_val = f"{val:,.0f} {unit}".strip()
                         else:
-                            display_val = str(val)
+                            display_val = f"{val} {unit}".strip()
                             
                         cols[j].metric(display_title, display_val)
                         
@@ -178,7 +197,6 @@ else:
                 log_msg = latest_log.get('message', latest_log.get('event', 'Turbine event occurred.'))
                 log_cause = latest_log.get('cause', latest_log.get('description', ''))
                 
-                # แสดงผลเป็นกล่องสไตล์ตามภาพอ้างอิงของคุณ
                 st.markdown(f"""
                 <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-top: 15px;">
                     <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.15rem; text-align: center;">
