@@ -149,22 +149,16 @@ else:
                 else:
                     return ""
             
-            # ฟังก์ชันสร้างป้าย Threshold ซ้ายขวา
+            # ฟังก์ชันสร้างป้าย Threshold ซ้ายขวา (ปรับให้เป็นบรรทัดเดียวป้องกัน HTML แตก)
             def get_threshold_tags(title):
                 t = title.upper()
                 left_html, right_html = "", ""
                 
                 def tag_l(label, val):
-                    return f'''<div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="background-color: #38bdf8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">{label}</span>
-                                <span style="color: #334155; font-size: 0.95rem; font-weight: bold;">{val}</span>
-                               </div>'''
+                    return f'<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"><span style="background-color: #38bdf8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">{label}</span><span style="color: #334155; font-size: 0.95rem; font-weight: bold;">{val}</span></div>'
                 
                 def tag_r(label, val, bg_color):
-                    return f'''<div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;">
-                                <span style="background-color: {bg_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{label}</span>
-                                <span style="color: #334155; font-size: 0.85rem; font-weight: bold;">{val}</span>
-                               </div>'''
+                    return f'<div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;"><span style="background-color: {bg_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{label}</span><span style="color: #334155; font-size: 0.85rem; font-weight: bold;">{val}</span></div>'
 
                 c_alarm = "#f59e0b" # สีส้มเหลือง
                 c_trip = "#ef4444"  # สีแดง
@@ -242,25 +236,8 @@ else:
                         # ดึงโค้ด HTML ของป้ายซ้าย/ขวา
                         left_tags, right_tags = get_threshold_tags(display_title)
                         
-                        # สร้าง HTML Layout ที่ยืดหยุ่นเพื่อรองรับการใส่ป้าย
-                        card_html = f"""
-                        <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;">
-                            <div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">
-                                {display_title}
-                            </div>
-                            <div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;">
-                                <div style="flex: 1; display: flex; justify-content: flex-start;">
-                                    {left_tags}
-                                </div>
-                                <div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold; white-space: nowrap;">
-                                    {display_val}
-                                </div>
-                                <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">
-                                    {right_tags}
-                                </div>
-                            </div>
-                        </div>
-                        """
+                        # สร้าง HTML Layout โดยเขียนเป็นบรรทัดเดียวเพื่อป้องกัน Streamlit Markdown Bug
+                        card_html = f'<div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold; white-space: nowrap;">{display_val}</div><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">{right_tags}</div></div></div>'
                         cols[j].markdown(card_html, unsafe_allow_html=True)
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
