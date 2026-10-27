@@ -47,12 +47,11 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        # ปรับปรุงระบบแปลงคอลัมน์ที่เป็นตัวเลขให้อัตโนมัติทุกคอลัมน์ (ยกเว้น id และวันที่)
+        # แก้ไขการใช้ errors='coerce' ให้ถูกต้องตามมาตรฐาน pandas
         exclude_parse = ['id', 'created_at', 'date_only']
         for col in df.columns:
             if col not in exclude_parse:
-                # ลองแปลงข้อมูลทุกคอลัมน์ให้เป็นตัวเลข ถ้าอันไหนแปลงได้จะถูกแปลงให้อัตโนมัติ
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='ignore')
+                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
         
         df = df.sort_values('created_at')
         
@@ -257,7 +256,6 @@ else:
             
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
             
-            # ดึงทุกคอลัมน์ที่เป็นตัวเลขมาทำสถิติอัตโนมัติ
             numeric_cols = daily_df.select_dtypes(include=['float64', 'int64']).columns
             exclude_stat_cols = ['id']
             stat_cols = [col for col in numeric_cols if col not in exclude_stat_cols]
@@ -266,7 +264,6 @@ else:
                 summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
-                # แปลงชื่อดัชนีในตารางให้ตรงกับสไตล์การแสดงผลด้านบน
                 formatted_index = []
                 for col in summary_df.index:
                     raw_name = str(col).upper().replace('_', ' ')
