@@ -59,6 +59,7 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
+        # แปลงค่าตัวเลขให้เป็น Float เพื่อใช้คำนวณและแสดงผล
         cols_to_numeric = ['watt_hour', 'generator_output', 'operating_rate', 'turbine_speed', 'starts', 'trips', 'alarms']
         for col in cols_to_numeric:
             if col in df.columns:
@@ -111,40 +112,49 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์แบบกล่องแยก ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ดึงทุกค่าอัตโนมัติ ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
             latest_time = latest_data['created_at'].strftime('%H:%M:%S')
             
-            st.subheader("🔴 มอนิเตอร์ค่าเซ็นเซอร์แบบเรียลไทม์")
+            st.subheader("🔴 มอนิเตอร์ค่าเซ็นเซอร์ทุกพารามิเตอร์แบบเรียลไทม์")
             if auto_refresh:
                 st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             else:
                 st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # โซนที่ 1: ค่าพลังงานและเครื่องกำเนิดไฟฟ้า
-            st.markdown("#### ⚡ ข้อมูลเครื่องกำเนิดไฟฟ้า (Generator Data)")
-            r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-            r1c1.metric("กำลังการผลิต (kW)", f"{latest_data.get('generator_output', 0):,.2f}")
-            r1c2.metric("ความเร็วกังหัน (RPM)", f"{latest_data.get('turbine_speed', 0):,.2f}")
-            r1c3.metric("อัตราการเดินเครื่อง (%)", f"{latest_data.get('operating_rate', 0):,.2f}")
-            r1c4.metric("พลังงานสะสม (Watt-hour)", f"{latest_data.get('watt_hour', 0):,.0f}")
+            # ดึงชื่อคอลัมน์ทั้งหมด ยกเว้นคอลัมน์ระบบที่ไม่ต้องการแสดง
+            exclude_cols = ['id', 'created_at', 'date_only']
+            all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # โซนที่ 2: สถานะเครื่องจักรและการแจ้งเตือน
-            st.markdown("#### 📊 สถานะการทำงานของเครื่องจักร (Machine Status)")
-            r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-            r2c1.metric("จำนวนครั้งที่สตาร์ท (Starts)", f"{latest_data.get('starts', 0):,.0f}")
-            r2c2.metric("จำนวนครั้งที่ทริป (Trips)", f"{latest_data.get('trips', 0):,.0f}")
-            r2c3.metric("การแจ้งเตือน (Alarms)", f"{latest_data.get('alarms', 0):,.0f}")
-            r2c4.metric("ชั่วโมงเดินเครื่อง (Running Time)", f"{latest_data.get('running_time', '0')}")
-            
+            # ลูปสร้างกล่อง Metrics แถวละ 4 กล่องอัตโนมัติ
+            num_columns = 4
+            for i in range(0, len(all_sensor_cols), num_columns):
+                cols = st.columns(num_columns)
+                for j in range(num_columns):
+                    if i + j < len(all_sensor_cols):
+                        col_name = all_sensor_cols[i + j]
+                        val = latest_data[col_name]
+                        
+                        # ทำชื่อคอลัมน์ให้ดูสวยงาม (แทนที่ _ ด้วยช่องว่าง และทำตัวพิมพ์ใหญ่คำแรก)
+                        display_title = str(col_name).replace('_', ' ').title()
+                        
+                        # จัดฟอร์แมตค่าตัวเลข
+                        if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
+                            display_val = "N/A"
+                        elif isinstance(val, (int, float)):
+                            if val % 1 != 0:
+                                display_val = f"{val:,.2f}"
+                            else:
+                                display_val = f"{val:,.0f}"
+                        else:
+                            display_val = str(val)
+                            
+                        cols[j].metric(display_title, display_val)
+                        
             st.markdown("<br><hr>", unsafe_allow_html=True)
-            
-            # ซ่อนตารางดิบไปเลย ตามที่ผู้ใช้ต้องการ
 
         # ---------------- หน้าต่างที่ 2: สรุปภาพรวม ----------------
         with tab2:
@@ -157,8 +167,13 @@ else:
             
             st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
-            chart_data = daily_df.set_index('created_at')['generator_output']
-            st.area_chart(chart_data, color="#3b82f6") 
+            
+            # ป้องกัน Error ถ้ากราฟไม่มีข้อมูลให้พล็อต
+            if 'generator_output' in daily_df.columns:
+                chart_data = daily_df.set_index('created_at')['generator_output']
+                st.area_chart(chart_data, color="#3b82f6") 
+            else:
+                st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
 
     else:
         st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
