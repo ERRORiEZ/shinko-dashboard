@@ -59,7 +59,6 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        # แปลงค่าตัวเลขให้เป็น Float เพื่อใช้คำนวณและแสดงผล
         cols_to_numeric = ['watt_hour', 'generator_output', 'operating_rate', 'turbine_speed', 'starts', 'trips', 'alarms']
         for col in cols_to_numeric:
             if col in df.columns:
@@ -69,7 +68,20 @@ def load_data():
         
     return df
 
+@st.cache_data(ttl=2) 
+def load_logs_data():
+    try:
+        response = supabase.table("turbine_logs").select("*").execute()
+        df_logs = pd.DataFrame(response.data)
+        if not df_logs.empty and 'created_at' in df_logs.columns:
+            df_logs['created_at'] = pd.to_datetime(df_logs['created_at']).dt.tz_convert('Asia/Bangkok')
+            df_logs = df_logs.sort_values('created_at', ascending=False)
+        return df_logs
+    except:
+        return pd.DataFrame()
+
 df = load_data()
+df_logs = load_logs_data()
 
 # ==========================================
 # 4. ส่วนแสดงผลหน้า Dashboard
@@ -112,7 +124,7 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ดึงทุกค่าอัตโนมัติ ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ + Event Summary ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -151,6 +163,36 @@ else:
                         cols[j].metric(display_title, display_val)
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
+            
+            # --- ส่วนแสดงกล่อง Event Summary ด้านล่างสุด ---
+            st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
+            
+            if not df_logs.empty:
+                latest_log = df_logs.iloc[0]
+                log_time = latest_log.get('created_at', latest_log.get('timestamp', 'N/A'))
+                if pd.notna(log_time) and hasattr(log_time, 'strftime'):
+                    log_time_str = log_time.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    log_time_str = str(log_time)
+                    
+                log_msg = latest_log.get('message', latest_log.get('event', 'Turbine event occurred.'))
+                log_cause = latest_log.get('cause', latest_log.get('description', ''))
+                
+                # แสดงผลเป็นกล่องสไตล์ตามภาพอ้างอิงของคุณ
+                st.markdown(f"""
+                <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-top: 15px;">
+                    <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.15rem; text-align: center;">
+                        ⚠️ Event Summary
+                    </div>
+                    <div style="padding: 25px; text-align: center; color: #1e293b;">
+                        <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #334155;">{log_time_str}</div>
+                        <div style="font-size: 1.1rem; margin-bottom: 8px; font-weight: 500;">{log_msg}</div>
+                        <div style="font-size: 1.05rem; color: #e11d48; font-weight: bold;">{log_cause}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
         # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ปุ่มโหลด Excel ----------------
         with tab2:
