@@ -164,7 +164,8 @@ else:
                         'turbine_speed': 'ความเร็วกังหัน (RPM)'
                     }
                     summary_df.index = [name_mapping[col] for col in existing_cols]
-                    st.dataframe(summary_df.style.format("{:.2f}").background_gradient(cmap='Blues'), use_container_width=True)
+                    # แก้ไขบรรทัดนี้เพื่อลบโค้ดไล่เฉดสีออก ป้องกัน Error
+                    st.dataframe(summary_df.round(2), use_container_width=True)
 
     else:
         st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
