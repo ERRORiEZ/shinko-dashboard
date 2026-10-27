@@ -59,46 +59,19 @@ else:
         daily_revenue = daily_production * 1000 * electric_rate
         
         # ==========================================
-        # ส่วนที่ 1: สรุปภาพรวม (Summary)
+        # สร้างส่วนหน้าต่างแบ่งเป็น 2 แท็บ
         # ==========================================
-        st.header("🎯 ส่วนที่ 1: สรุปภาพรวม (Summary)")
+        tab1, tab2 = st.tabs(["📋 ข้อมูลเรียลไทม์ (Real-time Logs)", "🎯 สรุปภาพรวม (Summary)"])
         
-        col1, col2, col3 = st.columns(3)
-        col1.metric("⚡ พลังงานที่ผลิตได้", f"{daily_production:,.3f} MWh")
-        col2.metric("💰 รายได้โดยประมาณ", f"{daily_revenue:,.2f} บาท")
-        col3.metric("⏱️ ข้อมูลที่บันทึกได้วันนี้", f"{len(daily_df)} รายการ")
-        
-        st.subheader("📈 กราฟแสดงกำลังการผลิต (Generator Output)")
-        chart_data = daily_df.set_index('created_at')['generator_output']
-        st.line_chart(chart_data)
-        
-        with st.expander("📊 ตารางสรุปสถิติประจำวัน", expanded=True):
-            summary_cols = ['generator_output', 'operating_rate', 'turbine_speed']
-            existing_cols = [col for col in summary_cols if col in daily_df.columns]
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ ----------------
+        with tab1:
+            st.header("📋 ข้อมูลการทำงานแบบละเอียด")
+            st.markdown("แสดงค่าเซ็นเซอร์ทุกรายการที่ถูกส่งเข้ามา **เรียงจากเวลาล่าสุดอยู่ด้านบนสุด**")
             
-            if existing_cols:
-                summary_df = daily_df[existing_cols].agg(['mean', 'max', 'min']).T
-                summary_df.columns = ['ค่าเฉลี่ย', 'ค่าสูงสุด', 'ค่าต่ำสุด']
-                
-                name_mapping = {
-                    'generator_output': 'กำลังการผลิต (kW)',
-                    'operating_rate': 'อัตราการเดินเครื่อง (%)',
-                    'turbine_speed': 'ความเร็วกังหัน (RPM)'
-                }
-                summary_df.index = [name_mapping[col] for col in existing_cols]
-                st.dataframe(summary_df.style.format("{:.2f}"), use_container_width=True)
-
-        st.markdown("---") # เส้นคั่นแบ่งโซน
-
-        # ==========================================
-        # ส่วนที่ 2: ข้อมูลแบบละเอียด (Raw Data)
-        # ==========================================
-        st.header("📋 ส่วนที่ 2: ข้อมูลการทำงานแบบละเอียด (Real-time Logs)")
-        st.markdown("แสดงค่าเซ็นเซอร์ทุกรายการที่ถูกส่งเข้ามา **เรียงจากเวลาล่าสุดอยู่ด้านบนสุด** เพื่อให้ง่ายต่อการตรวจสอบความผิดปกติ")
-        
-        # เรียงข้อมูลจากใหม่ไปเก่า และซ่อนคอลัมน์ date_only ที่ไม่ได้ใช้โชว์
-        display_df = daily_df.drop(columns=['date_only'], errors='ignore').sort_values('created_at', ascending=False)
-        st.dataframe(display_df, use_container_width=True, height=500)
-        
-    else:
-        st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
+            # เรียงข้อมูลจากใหม่ไปเก่า และซ่อนคอลัมน์ date_only
+            display_df = daily_df.drop(columns=['date_only'], errors='ignore').sort_values('created_at', ascending=False)
+            st.dataframe(display_df, use_container_width=True, height=600)
+            
+        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม ----------------
+        with tab2:
+            st.header("🎯 สร
