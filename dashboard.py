@@ -47,9 +47,10 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        exclude_parse = ['id', 'created_at', 'date_only']
+        # แปลงเฉพาะคอลัมน์ที่เป็นตัวเลขจริงๆ (เว้นคอลัมน์ที่เป็นเวลา วันที่ หรือไอดีไว้)
+        skip_cols = ['id', 'created_at', 'date_only']
         for col in df.columns:
-            if col not in exclude_parse:
+            if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
                 df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
         
         df = df.sort_values('created_at')
@@ -173,7 +174,7 @@ else:
                         
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
                             display_val = "N/A"
-                        elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower():
+                        elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower() or 'stamp' in col_name.lower():
                             try:
                                 display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M:%S')
                             except:
@@ -231,7 +232,7 @@ else:
             else:
                 st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ตารางสถิติใส่ลูกน้ำ ----------------
+        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ตารางสถิติ ----------------
         with tab2:
             st.subheader(f"📌 สรุปผลการดำเนินงานวันที่ {selected_date}")
             
@@ -253,15 +254,16 @@ else:
             
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
             
-            numeric_cols = daily_df.select_dtypes(include=['float64', 'int64']).columns
-            exclude_stat_cols = ['id']
-            stat_cols = [col for col in numeric_cols if col not in exclude_stat_cols]
+            # เลือกเฉพาะคอลัมน์ที่เป็นตัวเลขมาคำนวณสถิติ
+            numeric_cols = []
+            for col in daily_df.select_dtypes(include=['float64', 'int64']).columns:
+                if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
+                    numeric_cols.append(col)
             
-            if stat_cols:
-                summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
+            if numeric_cols:
+                summary_df = daily_df[numeric_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
-                # เปลี่ยนจาก applymap เป็น map เพื่อให้รองรับ Pandas เวอร์ชันล่าสุด
                 summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 
                 formatted_index = []
