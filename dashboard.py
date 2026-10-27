@@ -74,4 +74,33 @@ else:
             
         # ---------------- หน้าต่างที่ 2: สรุปภาพรวม ----------------
         with tab2:
-            st.header("🎯 สร
+            st.header("🎯 สรุปภาพรวมประจำวัน")
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric("⚡ พลังงานที่ผลิตได้", f"{daily_production:,.3f} MWh")
+            col2.metric("💰 รายได้โดยประมาณ", f"{daily_revenue:,.2f} บาท")
+            col3.metric("⏱️ ข้อมูลที่บันทึกได้วันนี้", f"{len(daily_df)} รายการ")
+            
+            st.markdown("---")
+            
+            st.subheader("📈 กราฟแสดงกำลังการผลิต (Generator Output)")
+            chart_data = daily_df.set_index('created_at')['generator_output']
+            st.line_chart(chart_data)
+            
+            with st.expander("📊 ตารางสรุปสถิติประจำวัน", expanded=True):
+                summary_cols = ['generator_output', 'operating_rate', 'turbine_speed']
+                existing_cols = [col for col in summary_cols if col in daily_df.columns]
+                
+                if existing_cols:
+                    summary_df = daily_df[existing_cols].agg(['mean', 'max', 'min']).T
+                    summary_df.columns = ['ค่าเฉลี่ย', 'ค่าสูงสุด', 'ค่าต่ำสุด']
+                    
+                    name_mapping = {
+                        'generator_output': 'กำลังการผลิต (kW)',
+                        'operating_rate': 'อัตราการเดินเครื่อง (%)',
+                        'turbine_speed': 'ความเร็วกังหัน (RPM)'
+                    }
+                    summary_df.index = [name_mapping[col] for col in existing_cols]
+                    st.dataframe(summary_df.style.format("{:.2f}"), use_container_width=True)
+    else:
+        st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
