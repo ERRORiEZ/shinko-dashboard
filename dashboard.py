@@ -22,6 +22,10 @@ st.markdown("""
         transform: translateY(-5px);
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
     }
+    /* ปรับขนาดตัวอักษรในกล่อง Metric ให้พอดี ไม่ล้นกรอบ */
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+        font-size: 1.6rem !important;
+    }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -124,7 +128,7 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ + หน่วย ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -140,10 +144,12 @@ else:
             exclude_cols = ['id', 'created_at', 'date_only']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
-            # ฟังก์ชันช่วยจับคู่ชื่อคอลัมน์กับหน่วยวัดอัตโนมัติ
+            # ฟังก์ชันจับคู่หน่วย (เพิ่มข้อยกเว้นไม่ใส่หน่วยให้ Time/Date)
             def get_unit(col_name):
                 name = col_name.lower()
-                if 'temp' in name:
+                if 'time' in name or 'date' in name or 'stamp' in name:
+                    return "" # ไม่ใส่หน่วยถ้าเป็นข้อมูลเวลาหรือวันที่
+                elif 'temp' in name:
                     return "°C"
                 elif 'press' in name or 'pressure' in name:
                     return "bar"
@@ -171,6 +177,12 @@ else:
                         
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
                             display_val = "N/A"
+                        elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower():
+                            # จัดรูปทรงข้อมูลที่เป็นเวลาให้อ่านง่ายและไม่ล้น
+                            try:
+                                display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M')
+                            except:
+                                display_val = str(val)
                         elif isinstance(val, (int, float)):
                             if val % 1 != 0:
                                 display_val = f"{val:,.2f} {unit}".strip()
