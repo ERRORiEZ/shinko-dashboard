@@ -261,8 +261,8 @@ else:
                 summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
-                # จัดรูปแบบตัวเลขในตารางให้ใส่ลูกน้ำคั่นหลักพันและทศนิยม 2 ตำแหน่ง
-                summary_df = summary_df.applymap(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
+                # เปลี่ยนจาก applymap เป็น map เพื่อให้รองรับ Pandas เวอร์ชันล่าสุด
+                summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 
                 formatted_index = []
                 for col in summary_df.index:
