@@ -11,12 +11,12 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="Turbine Dashboard", layout="wide")
-st.title("⚡ Dashboard สรุปประสิทธิภาพและรายได้กังหันไฟฟ้า")
+st.title("Dashboard สรุปประสิทธิภาพและรายได้กังหันไฟฟ้า")
 
 # ==========================================
 # 2. ฟังก์ชันดึงข้อมูล
 # ==========================================
-@st.cache_data(ttl=60)  # ดึงข้อมูลใหม่ทุก 1 นาที
+@st.cache_data(ttl=60)
 def load_data():
     response = supabase.table("shinko_data").select("*").execute()
     df = pd.DataFrame(response.data)
@@ -40,14 +40,14 @@ df = load_data()
 # 3. ส่วนแสดงผลหน้า Dashboard
 # ==========================================
 if df.empty:
-    st.warning("⚠️ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล")
+    st.warning("ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล")
 else:
     # ---------------- Sidebar ----------------
-    st.sidebar.header("⚙️ ตั้งค่าการคำนวณ")
+    st.sidebar.header("ตั้งค่าการคำนวณ")
     electric_rate = st.sidebar.number_input("อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
     available_dates = df['date_only'].unique()
-    selected_date = st.sidebar.selectbox("🗓️ เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1)
+    selected_date = st.sidebar.selectbox("เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1)
     
     daily_df = df[df['date_only'] == selected_date].copy()
     
@@ -61,12 +61,12 @@ else:
         # ==========================================
         # สร้างส่วนหน้าต่างแบ่งเป็น 2 แท็บ
         # ==========================================
-        tab1, tab2 = st.tabs(["📋 ข้อมูลเรียลไทม์ (Real-time Logs)", "🎯 สรุปภาพรวม (Summary)"])
+        tab1, tab2 = st.tabs(["ข้อมูลเรียลไทม์", "สรุปภาพรวม"])
         
         # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ ----------------
         with tab1:
-            st.header("📋 ข้อมูลการทำงานแบบละเอียด")
-            st.markdown("แสดงค่าเซ็นเซอร์ทุกรายการที่ถูกส่งเข้ามา **เรียงจากเวลาล่าสุดอยู่ด้านบนสุด**")
+            st.header("ข้อมูลการทำงานแบบละเอียด")
+            st.markdown("แสดงค่าเซ็นเซอร์ทุกรายการที่ถูกส่งเข้ามา เรียงจากเวลาล่าสุดอยู่ด้านบนสุด")
             
             # เรียงข้อมูลจากใหม่ไปเก่า และซ่อนคอลัมน์ date_only
             display_df = daily_df.drop(columns=['date_only'], errors='ignore').sort_values('created_at', ascending=False)
@@ -74,20 +74,20 @@ else:
             
         # ---------------- หน้าต่างที่ 2: สรุปภาพรวม ----------------
         with tab2:
-            st.header("🎯 สรุปภาพรวมประจำวัน")
+            st.header("สรุปภาพรวมประจำวัน")
             
             col1, col2, col3 = st.columns(3)
-            col1.metric("⚡ พลังงานที่ผลิตได้", f"{daily_production:,.3f} MWh")
-            col2.metric("💰 รายได้โดยประมาณ", f"{daily_revenue:,.2f} บาท")
-            col3.metric("⏱️ ข้อมูลที่บันทึกได้วันนี้", f"{len(daily_df)} รายการ")
+            col1.metric("พลังงานที่ผลิตได้ (MWh)", f"{daily_production:,.3f}")
+            col2.metric("รายได้โดยประมาณ (บาท)", f"{daily_revenue:,.2f}")
+            col3.metric("ข้อมูลที่บันทึกได้วันนี้ (รายการ)", f"{len(daily_df)}")
             
             st.markdown("---")
             
-            st.subheader("📈 กราฟแสดงกำลังการผลิต (Generator Output)")
+            st.subheader("กราฟแสดงกำลังการผลิต (Generator Output)")
             chart_data = daily_df.set_index('created_at')['generator_output']
             st.line_chart(chart_data)
             
-            with st.expander("📊 ตารางสรุปสถิติประจำวัน", expanded=True):
+            with st.expander("ตารางสรุปสถิติประจำวัน", expanded=True):
                 summary_cols = ['generator_output', 'operating_rate', 'turbine_speed']
                 existing_cols = [col for col in summary_cols if col in daily_df.columns]
                 
