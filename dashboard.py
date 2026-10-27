@@ -77,7 +77,7 @@ df_logs = load_logs_data()
 if df.empty:
     st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
 else:
-    # ---------------- Sidebar (เอา st.image ออกแล้ว) ----------------
+    # ---------------- Sidebar ----------------
     with st.sidebar:
         st.header("⚡ ควบคุมระบบ Real-time")
         
@@ -231,14 +231,14 @@ else:
             else:
                 st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ตารางสถิติครบทุกค่า ----------------
+        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ตารางสถิติใส่ลูกน้ำ ----------------
         with tab2:
             st.subheader(f"📌 สรุปผลการดำเนินงานวันที่ {selected_date}")
             
             col1, col2, col3 = st.columns(3)
             col1.metric("⚡ พลังงานที่ผลิตได้ (MWh)", f"{daily_production:,.3f}")
             col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{daily_revenue:,.2f}")
-            col3.metric("⏱️ จำนวนข้อมูล (รายการ)", f"{len(daily_df)}")
+            col3.metric("⏱️ จำนวนข้อมูล (รายการ)", f"{len(daily_df):,}")
             
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -261,6 +261,9 @@ else:
                 summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
+                # จัดรูปแบบตัวเลขในตารางให้ใส่ลูกน้ำคั่นหลักพันและทศนิยม 2 ตำแหน่ง
+                summary_df = summary_df.applymap(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
+                
                 formatted_index = []
                 for col in summary_df.index:
                     raw_name = str(col).upper().replace('_', ' ')
@@ -278,7 +281,6 @@ else:
                         formatted_index.append(raw_name)
                 
                 summary_df.index = formatted_index
-                summary_df = summary_df.round(2)
                 
                 st.dataframe(summary_df, use_container_width=True)
                 
