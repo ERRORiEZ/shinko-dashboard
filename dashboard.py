@@ -112,7 +112,7 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ (ดีไซน์การ์ดแถบสีสวยงาม) ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ (ชื่อหัวข้อตรงตามเว็บ) ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -128,7 +128,6 @@ else:
             exclude_cols = ['id', 'created_at', 'date_only']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
-            # ฟังก์ชันกำหนดหน่วย
             def get_unit(col_name):
                 name = col_name.lower()
                 if 'time' in name or 'date' in name or 'stamp' in name:
@@ -148,10 +147,8 @@ else:
                 else:
                     return ""
 
-            # ชุดสีสำหรับแถบหัวข้อการ์ด (วนลูปใช้สี: แดง, ม่วง, ฟ้า, ชมพูเข้ม)
             header_colors = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
 
-            # วาดการ์ดทีละ 2 คอลัมน์ต่อแถว เพื่อความสวยงามและไม่แน่นเกินไป
             num_columns = 2
             for i in range(0, len(all_sensor_cols), num_columns):
                 cols = st.columns(num_columns)
@@ -160,7 +157,21 @@ else:
                         col_name = all_sensor_cols[i + j]
                         val = latest_data[col_name]
                         
-                        display_title = str(col_name).replace('_', ' ').upper()
+                        # แปลงชื่อคอลัมน์ให้ตรงตามรูปแบบสไตล์ในภาพตัวอย่างเว็บของคุณ
+                        raw_name = str(col_name).upper().replace('_', ' ')
+                        if "START" in raw_name and "TIME" in raw_name:
+                            display_title = "THE LAST START UP DATE TIME"
+                        elif "START" in raw_name:
+                            display_title = "THE NUMBER OF STARTS"
+                        elif "TRIP" in raw_name:
+                            display_title = "THE NUMBER OF TRIPS"
+                        elif "ALARM" in raw_name:
+                            display_title = "THE NUMBER OF ALARMS"
+                        elif "RUNNING" in raw_name or "RUN" in raw_name:
+                            display_title = "TURBINE RUNNING TIME"
+                        else:
+                            display_title = raw_name
+
                         unit = get_unit(col_name)
                         
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
@@ -178,10 +189,8 @@ else:
                         else:
                             display_val = f"{val} {unit}".strip()
                         
-                        # เลือกสีแถบหัวข้อตามลำดับ
                         bg_color = header_colors[(i + j) % len(header_colors)]
                         
-                        # สร้าง HTML การ์ดสไตล์อุตสาหกรรม
                         card_html = f"""
                         <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;">
                             <div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">
