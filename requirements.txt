@@ -1,8 +1,3 @@
-streamlit==1.28.0
-altair==4.2.2
-jsonschema==4.17.3
-pyarrow==10.0.1
-requests
 streamlit
 pandas
 supabase
