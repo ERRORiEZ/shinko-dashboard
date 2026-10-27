@@ -125,11 +125,9 @@ else:
                 st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # ดึงชื่อคอลัมน์ทั้งหมด ยกเว้นคอลัมน์ระบบที่ไม่ต้องการแสดง
             exclude_cols = ['id', 'created_at', 'date_only']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
-            # ลูปสร้างกล่อง Metrics แถวละ 4 กล่องอัตโนมัติ
             num_columns = 4
             for i in range(0, len(all_sensor_cols), num_columns):
                 cols = st.columns(num_columns)
@@ -138,10 +136,8 @@ else:
                         col_name = all_sensor_cols[i + j]
                         val = latest_data[col_name]
                         
-                        # ทำชื่อคอลัมน์ให้ดูสวยงาม
                         display_title = str(col_name).replace('_', ' ').title()
                         
-                        # จัดฟอร์แมตค่าตัวเลข
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
                             display_val = "N/A"
                         elif isinstance(val, (int, float)):
@@ -156,7 +152,7 @@ else:
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
 
-        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม (เพิ่มตารางสถิติกลับมา) ----------------
+        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ปุ่มโหลด Excel ----------------
         with tab2:
             st.subheader(f"📌 สรุปผลการดำเนินงานวันที่ {selected_date}")
             
@@ -177,29 +173,8 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # ตารางสรุปสถิติประจำวัน (ดึงเฉพาะคอลัมน์ตัวเลขมาทำสถิติอัตโนมัติ)
+            # ตารางสรุปสถิติประจำวัน
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
             numeric_cols = daily_df.select_dtypes(include=['float64', 'int64']).columns
             exclude_stat_cols = ['id']
-            stat_cols = [col for col in numeric_cols if col not in exclude_stat_cols]
-            
-            if stat_cols:
-                summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
-                summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                summary_df.index = [str(col).replace('_', ' ').title() for col in summary_df.index]
-                
-                # แสดงผลตารางแบบไม่มีสีไล่เฉด ป้องกัน Error Jinja2
-                st.dataframe(summary_df.round(2), use_container_width=True)
-            else:
-                st.info("ไม่มีข้อมูลตัวเลขสำหรับสร้างตารางสรุปสถิติ")
-
-    else:
-        st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
-
-# ==========================================
-# 5. ระบบ Auto-Refresh (ทุก 60 วินาที)
-# ==========================================
-if auto_refresh:
-    time.sleep(60) 
-    st.cache_data.clear() 
-    st.rerun()
+            stat_
