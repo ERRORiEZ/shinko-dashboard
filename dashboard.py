@@ -138,7 +138,7 @@ else:
                         col_name = all_sensor_cols[i + j]
                         val = latest_data[col_name]
                         
-                        # ทำชื่อคอลัมน์ให้ดูสวยงาม (แทนที่ _ ด้วยช่องว่าง และทำตัวพิมพ์ใหญ่คำแรก)
+                        # ทำชื่อคอลัมน์ให้ดูสวยงาม
                         display_title = str(col_name).replace('_', ' ').title()
                         
                         # จัดฟอร์แมตค่าตัวเลข
@@ -156,7 +156,7 @@ else:
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
 
-        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม ----------------
+        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม (เพิ่มตารางสถิติกลับมา) ----------------
         with tab2:
             st.subheader(f"📌 สรุปผลการดำเนินงานวันที่ {selected_date}")
             
@@ -166,14 +166,32 @@ else:
             col3.metric("⏱️ จำนวนข้อมูล (รายการ)", f"{len(daily_df)}")
             
             st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
             
-            # ป้องกัน Error ถ้ากราฟไม่มีข้อมูลให้พล็อต
+            # กราฟแสดงแนวโน้ม
+            st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
             if 'generator_output' in daily_df.columns:
                 chart_data = daily_df.set_index('created_at')['generator_output']
                 st.area_chart(chart_data, color="#3b82f6") 
             else:
                 st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # ตารางสรุปสถิติประจำวัน (ดึงเฉพาะคอลัมน์ตัวเลขมาทำสถิติอัตโนมัติ)
+            st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
+            numeric_cols = daily_df.select_dtypes(include=['float64', 'int64']).columns
+            exclude_stat_cols = ['id']
+            stat_cols = [col for col in numeric_cols if col not in exclude_stat_cols]
+            
+            if stat_cols:
+                summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
+                summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                summary_df.index = [str(col).replace('_', ' ').title() for col in summary_df.index]
+                
+                # แสดงผลตารางแบบไม่มีสีไล่เฉด ป้องกัน Error Jinja2
+                st.dataframe(summary_df.round(2), use_container_width=True)
+            else:
+                st.info("ไม่มีข้อมูลตัวเลขสำหรับสร้างตารางสรุปสถิติ")
 
     else:
         st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
