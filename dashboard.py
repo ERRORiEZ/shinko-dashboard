@@ -47,7 +47,6 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        # แปลงเฉพาะคอลัมน์ที่เป็นตัวเลขจริงๆ (เว้นคอลัมน์ที่เป็นเวลา วันที่ หรือไอดีไว้)
         skip_cols = ['id', 'created_at', 'date_only']
         for col in df.columns:
             if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
@@ -130,6 +129,8 @@ else:
             def get_unit(col_name):
                 name = col_name.lower()
                 if 'time' in name or 'date' in name or 'stamp' in name:
+                    if 'running' in name or 'run' in name:
+                        return "min" # เพิ่มหน่วย min ให้ Turbine Running Time
                     return ""
                 elif 'temp' in name:
                     return "°C"
@@ -143,6 +144,8 @@ else:
                     return "%"
                 elif 'flow' in name:
                     return "m³/h"
+                elif 'running' in name or 'run' in name:
+                    return "min"
                 else:
                     return ""
 
@@ -175,10 +178,13 @@ else:
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
                             display_val = "N/A"
                         elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower() or 'stamp' in col_name.lower():
-                            try:
-                                display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M:%S')
-                            except:
-                                display_val = str(val)
+                            if 'running' in col_name.lower() or 'run' in col_name.lower():
+                                display_val = f"{val:,.0f} {unit}".strip() if isinstance(val, (int, float)) else f"{val} {unit}".strip()
+                            else:
+                                try:
+                                    display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M:%S')
+                                except:
+                                    display_val = str(val)
                         elif isinstance(val, (int, float)):
                             if val % 1 != 0:
                                 display_val = f"{val:,.2f} {unit}".strip()
@@ -254,10 +260,11 @@ else:
             
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
             
-            # เลือกเฉพาะคอลัมน์ที่เป็นตัวเลขมาคำนวณสถิติ
             numeric_cols = []
             for col in daily_df.select_dtypes(include=['float64', 'int64']).columns:
                 if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
+                    numeric_cols.append(col)
+                elif 'running' in col.lower() or 'run' in col.lower():
                     numeric_cols.append(col)
             
             if numeric_cols:
