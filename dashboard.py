@@ -47,7 +47,6 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        # แก้ไขการใช้ errors='coerce' ให้ถูกต้องตามมาตรฐาน pandas
         exclude_parse = ['id', 'created_at', 'date_only']
         for col in df.columns:
             if col not in exclude_parse:
@@ -78,10 +77,8 @@ df_logs = load_logs_data()
 if df.empty:
     st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
 else:
-    # ---------------- Sidebar ----------------
+    # ---------------- Sidebar (เอา st.image ออกแล้ว) ----------------
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2157/2157014.png", width=120) 
-        
         st.header("⚡ ควบคุมระบบ Real-time")
         
         auto_refresh = st.toggle("เปิดโหมด Auto-Refresh (ทุก 60 วิ)", value=False)
