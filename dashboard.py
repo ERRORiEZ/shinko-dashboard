@@ -59,7 +59,7 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        cols_to_numeric = ['watt_hour', 'generator_output', 'operating_rate', 'turbine_speed']
+        cols_to_numeric = ['watt_hour', 'generator_output', 'operating_rate', 'turbine_speed', 'starts', 'trips', 'alarms']
         for col in cols_to_numeric:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
@@ -82,7 +82,6 @@ else:
         
         st.header("⚡ ควบคุมระบบ Real-time")
         
-        # สวิตช์ออโต้ 60 วินาที
         auto_refresh = st.toggle("เปิดโหมด Auto-Refresh (ทุก 60 วิ)", value=False)
         
         if auto_refresh:
@@ -90,7 +89,6 @@ else:
         else:
             st.info("⚪ ระบบหยุดดึงข้อมูลอัตโนมัติ")
             
-        # ปุ่มกดดึงข้อมูลแบบ Manual
         if st.button("🔄 ดึงข้อมูลทันที (Manual)", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
@@ -113,7 +111,7 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์แบบกล่องแยก ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -126,16 +124,27 @@ else:
                 st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
+            # โซนที่ 1: ค่าพลังงานและเครื่องกำเนิดไฟฟ้า
+            st.markdown("#### ⚡ ข้อมูลเครื่องกำเนิดไฟฟ้า (Generator Data)")
             r1c1, r1c2, r1c3, r1c4 = st.columns(4)
             r1c1.metric("กำลังการผลิต (kW)", f"{latest_data.get('generator_output', 0):,.2f}")
             r1c2.metric("ความเร็วกังหัน (RPM)", f"{latest_data.get('turbine_speed', 0):,.2f}")
             r1c3.metric("อัตราการเดินเครื่อง (%)", f"{latest_data.get('operating_rate', 0):,.2f}")
             r1c4.metric("พลังงานสะสม (Watt-hour)", f"{latest_data.get('watt_hour', 0):,.0f}")
             
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # โซนที่ 2: สถานะเครื่องจักรและการแจ้งเตือน
+            st.markdown("#### 📊 สถานะการทำงานของเครื่องจักร (Machine Status)")
+            r2c1, r2c2, r2c3, r2c4 = st.columns(4)
+            r2c1.metric("จำนวนครั้งที่สตาร์ท (Starts)", f"{latest_data.get('starts', 0):,.0f}")
+            r2c2.metric("จำนวนครั้งที่ทริป (Trips)", f"{latest_data.get('trips', 0):,.0f}")
+            r2c3.metric("การแจ้งเตือน (Alarms)", f"{latest_data.get('alarms', 0):,.0f}")
+            r2c4.metric("ชั่วโมงเดินเครื่อง (Running Time)", f"{latest_data.get('running_time', '0')}")
+            
             st.markdown("<br><hr>", unsafe_allow_html=True)
             
-            with st.expander("🔍 ดูตารางข้อมูลดิบทั้งหมด (Raw Data)"):
-                st.dataframe(display_df.drop(columns=['date_only'], errors='ignore'), use_container_width=True, height=300)
+            # ซ่อนตารางดิบไปเลย ตามที่ผู้ใช้ต้องการ
 
         # ---------------- หน้าต่างที่ 2: สรุปภาพรวม ----------------
         with tab2:
@@ -150,22 +159,6 @@ else:
             st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
             chart_data = daily_df.set_index('created_at')['generator_output']
             st.area_chart(chart_data, color="#3b82f6") 
-            
-            with st.expander("📌 ดูตารางสรุปสถิติเชิงลึก", expanded=False):
-                summary_cols = ['generator_output', 'operating_rate', 'turbine_speed']
-                existing_cols = [col for col in summary_cols if col in daily_df.columns]
-                
-                if existing_cols:
-                    summary_df = daily_df[existing_cols].agg(['mean', 'max', 'min']).T
-                    summary_df.columns = ['ค่าเฉลี่ย', 'ค่าสูงสุด', 'ค่าต่ำสุด']
-                    name_mapping = {
-                        'generator_output': 'กำลังการผลิต (kW)',
-                        'operating_rate': 'อัตราการเดินเครื่อง (%)',
-                        'turbine_speed': 'ความเร็วกังหัน (RPM)'
-                    }
-                    summary_df.index = [name_mapping[col] for col in existing_cols]
-                    # แก้ไขบรรทัดนี้เพื่อลบโค้ดไล่เฉดสีออก ป้องกัน Error
-                    st.dataframe(summary_df.round(2), use_container_width=True)
 
     else:
         st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
