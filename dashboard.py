@@ -163,7 +163,6 @@ else:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # กราฟแสดงแนวโน้ม
             st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
             if 'generator_output' in daily_df.columns:
                 chart_data = daily_df.set_index('created_at')['generator_output']
@@ -173,8 +172,38 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # ตารางสรุปสถิติประจำวัน
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
             numeric_cols = daily_df.select_dtypes(include=['float64', 'int64']).columns
             exclude_stat_cols = ['id']
-            stat_
+            stat_cols = [col for col in numeric_cols if col not in exclude_stat_cols]
+            
+            if stat_cols:
+                summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
+                summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                summary_df.index = [str(col).replace('_', ' ').title() for col in summary_df.index]
+                summary_df = summary_df.round(2)
+                
+                st.dataframe(summary_df, use_container_width=True)
+                
+                csv_data = summary_df.to_csv().encode('utf-8-sig')
+                
+                st.download_button(
+                    label="📥 ดาวน์โหลดตารางสรุปผล (Excel/CSV)",
+                    data=csv_data,
+                    file_name=f"turbine_summary_{selected_date}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("ไม่มีข้อมูลตัวเลขสำหรับสร้างตารางสรุปสถิติ")
+
+    else:
+        st.info("ไม่มีข้อมูลสำหรับวันที่เลือก")
+
+# ==========================================
+# 5. ระบบ Auto-Refresh (ทุก 60 วินาที)
+# ==========================================
+if auto_refresh:
+    time.sleep(60) 
+    st.cache_data.clear() 
+    st.rerun()
