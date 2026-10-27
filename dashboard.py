@@ -47,10 +47,12 @@ def load_data():
         df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
         df['date_only'] = df['created_at'].dt.date
         
-        cols_to_numeric = ['watt_hour', 'generator_output', 'operating_rate', 'turbine_speed', 'starts', 'trips', 'alarms']
-        for col in cols_to_numeric:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+        # ปรับปรุงระบบแปลงคอลัมน์ที่เป็นตัวเลขให้อัตโนมัติทุกคอลัมน์ (ยกเว้น id และวันที่)
+        exclude_parse = ['id', 'created_at', 'date_only']
+        for col in df.columns:
+            if col not in exclude_parse:
+                # ลองแปลงข้อมูลทุกคอลัมน์ให้เป็นตัวเลข ถ้าอันไหนแปลงได้จะถูกแปลงให้อัตโนมัติ
+                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='ignore')
         
         df = df.sort_values('created_at')
         
@@ -105,14 +107,14 @@ else:
     daily_df = df[df['date_only'] == selected_date].copy()
     
     if not daily_df.empty:
-        watt_max = daily_df['watt_hour'].max()
-        watt_min = daily_df['watt_hour'].min()
+        watt_max = daily_df['watt_hour'].max() if 'watt_hour' in daily_df.columns else 0
+        watt_min = daily_df['watt_hour'].min() if 'watt_hour' in daily_df.columns else 0
         daily_production = watt_max - watt_min
         daily_revenue = daily_production * 1000 * electric_rate
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ (ชื่อหัวข้อตรงตามเว็บ) ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -157,7 +159,6 @@ else:
                         col_name = all_sensor_cols[i + j]
                         val = latest_data[col_name]
                         
-                        # แปลงชื่อคอลัมน์ให้ตรงตามรูปแบบสไตล์ในภาพตัวอย่างเว็บของคุณ
                         raw_name = str(col_name).upper().replace('_', ' ')
                         if "START" in raw_name and "TIME" in raw_name:
                             display_title = "THE LAST START UP DATE TIME"
@@ -234,7 +235,7 @@ else:
             else:
                 st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ปุ่มโหลด Excel ----------------
+        # ---------------- หน้าต่างที่ 2: สรุปภาพรวม + ตารางสถิติครบทุกค่า ----------------
         with tab2:
             st.subheader(f"📌 สรุปผลการดำเนินงานวันที่ {selected_date}")
             
@@ -255,6 +256,8 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
+            
+            # ดึงทุกคอลัมน์ที่เป็นตัวเลขมาทำสถิติอัตโนมัติ
             numeric_cols = daily_df.select_dtypes(include=['float64', 'int64']).columns
             exclude_stat_cols = ['id']
             stat_cols = [col for col in numeric_cols if col not in exclude_stat_cols]
@@ -262,7 +265,25 @@ else:
             if stat_cols:
                 summary_df = daily_df[stat_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                summary_df.index = [str(col).replace('_', ' ').title() for col in summary_df.index]
+                
+                # แปลงชื่อดัชนีในตารางให้ตรงกับสไตล์การแสดงผลด้านบน
+                formatted_index = []
+                for col in summary_df.index:
+                    raw_name = str(col).upper().replace('_', ' ')
+                    if "START" in raw_name and "TIME" in raw_name:
+                        formatted_index.append("THE LAST START UP DATE TIME")
+                    elif "START" in raw_name:
+                        formatted_index.append("THE NUMBER OF STARTS")
+                    elif "TRIP" in raw_name:
+                        formatted_index.append("THE NUMBER OF TRIPS")
+                    elif "ALARM" in raw_name:
+                        formatted_index.append("THE NUMBER OF ALARMS")
+                    elif "RUNNING" in raw_name or "RUN" in raw_name:
+                        formatted_index.append("TURBINE RUNNING TIME")
+                    else:
+                        formatted_index.append(raw_name)
+                
+                summary_df.index = formatted_index
                 summary_df = summary_df.round(2)
                 
                 st.dataframe(summary_df, use_container_width=True)
