@@ -10,22 +10,6 @@ st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", l
 
 st.markdown("""
 <style>
-    div[data-testid="metric-container"] {
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s ease-in-out;
-    }
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-    }
-    /* ปรับขนาดตัวอักษรในกล่อง Metric ให้พอดี ไม่ล้นกรอบ */
-    div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-        font-size: 1.6rem !important;
-    }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -128,7 +112,7 @@ else:
         
         tab1, tab2 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)"])
         
-        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ ----------------
+        # ---------------- หน้าต่างที่ 1: ข้อมูลเรียลไทม์ (ดีไซน์การ์ดแถบสีสวยงาม) ----------------
         with tab1:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
@@ -144,11 +128,11 @@ else:
             exclude_cols = ['id', 'created_at', 'date_only']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
-            # ฟังก์ชันจับคู่หน่วย (เพิ่มข้อยกเว้นไม่ใส่หน่วยให้ Time/Date)
+            # ฟังก์ชันกำหนดหน่วย
             def get_unit(col_name):
                 name = col_name.lower()
                 if 'time' in name or 'date' in name or 'stamp' in name:
-                    return "" # ไม่ใส่หน่วยถ้าเป็นข้อมูลเวลาหรือวันที่
+                    return ""
                 elif 'temp' in name:
                     return "°C"
                 elif 'press' in name or 'pressure' in name:
@@ -164,7 +148,11 @@ else:
                 else:
                     return ""
 
-            num_columns = 4
+            # ชุดสีสำหรับแถบหัวข้อการ์ด (วนลูปใช้สี: แดง, ม่วง, ฟ้า, ชมพูเข้ม)
+            header_colors = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
+
+            # วาดการ์ดทีละ 2 คอลัมน์ต่อแถว เพื่อความสวยงามและไม่แน่นเกินไป
+            num_columns = 2
             for i in range(0, len(all_sensor_cols), num_columns):
                 cols = st.columns(num_columns)
                 for j in range(num_columns):
@@ -172,15 +160,14 @@ else:
                         col_name = all_sensor_cols[i + j]
                         val = latest_data[col_name]
                         
-                        display_title = str(col_name).replace('_', ' ').title()
+                        display_title = str(col_name).replace('_', ' ').upper()
                         unit = get_unit(col_name)
                         
                         if pd.isna(val) or val is None or str(val).strip().upper() == 'NULL':
                             display_val = "N/A"
                         elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower():
-                            # จัดรูปทรงข้อมูลที่เป็นเวลาให้อ่านง่ายและไม่ล้น
                             try:
-                                display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M')
+                                display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M:%S')
                             except:
                                 display_val = str(val)
                         elif isinstance(val, (int, float)):
@@ -190,8 +177,22 @@ else:
                                 display_val = f"{val:,.0f} {unit}".strip()
                         else:
                             display_val = f"{val} {unit}".strip()
-                            
-                        cols[j].metric(display_title, display_val)
+                        
+                        # เลือกสีแถบหัวข้อตามลำดับ
+                        bg_color = header_colors[(i + j) % len(header_colors)]
+                        
+                        # สร้าง HTML การ์ดสไตล์อุตสาหกรรม
+                        card_html = f"""
+                        <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;">
+                            <div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">
+                                {display_title}
+                            </div>
+                            <div style="padding: 22px; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold;">
+                                {display_val}
+                            </div>
+                        </div>
+                        """
+                        cols[j].markdown(card_html, unsafe_allow_html=True)
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
             
