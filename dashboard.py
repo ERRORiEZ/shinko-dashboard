@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
+import io
 from supabase import create_client, Client
 
 # ==========================================
@@ -27,7 +28,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_resource
 def init_connection():
@@ -311,21 +312,68 @@ else:
                 
                 summary_df.index = formatted_index
                 
-                # แปลง Index (ชื่อพารามิเตอร์) ให้มาเป็นคอลัมน์แรกสุด เพื่อให้เวลาดาวน์โหลดตรงกับรูปแบบที่คุณต้องการ
-                export_df = summary_df.reset_index()
-                export_df.columns = ['พารามิเตอร์', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                
-                # แสดงผลบนหน้าเว็บ (กำหนดให้ซ่อน Index ตัวเลขด้านซ้าย เพื่อความสวยงามเหมือนในรูป)
+                # แสดงผลบนหน้าเว็บ
                 st.dataframe(summary_df, use_container_width=True)
                 
-                # แปลงเป็น CSV โดยใช้ export_df ที่มีหัวข้อคอลัมน์ชัดเจน
-                csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
+                # --- สร้างไฟล์ Excel (.xlsx) พร้อมจัดกรอบและปรับความกว้างอัตโนมัติ ---
+                export_df = summary_df.reset_index()
+                export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
+                    
+                    # จัดแต่งสไตล์ Excel (เพิ่มกรอบตาราง และขยายความกว้างช่องพอดี)
+                    workbook = writer.book
+                    worksheet = writer.sheets['Summary']
+                    
+                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                    
+                    # สไตล์เส้นกรอบ
+                    thin_border = Border(
+                        left=Side(style='thin', color='CCCCCC'),
+                        right=Side(style='thin', color='CCCCCC'),
+                        top=Side(style='thin', color='CCCCCC'),
+                        bottom=Side(style='thin', color='CCCCCC')
+                    )
+                    
+                    header_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+                    header_font = Font(name='Calibri', size=11, bold=True)
+                    cell_font = Font(name='Calibri', size=11)
+                    
+                    # จัดฟอร์มแถวหัวตาราง (Row 1)
+                    for col_num in range(1, len(export_df.columns) + 1):
+                        cell = worksheet.cell(row=1, column=col_num)
+                        cell.font = header_font
+                        cell.fill = header_fill
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                        cell.border = thin_border
+                        
+                    # จัดฟอร์มข้อมูลในตาราง
+                    for row_num in range(2, len(export_df) + 2):
+                        for col_num in range(1, len(export_df.columns) + 1):
+                            cell = worksheet.cell(row=row_num, column=col_num)
+                            cell.font = cell_font
+                            cell.border = thin_border
+                            # คอลัมน์แรกชิดซ้าย คอลัมน์ตัวเลขชิดขวา
+                            if col_num == 1:
+                                cell.alignment = Alignment(horizontal='left', vertical='center')
+                            else:
+                                cell.alignment = Alignment(horizontal='right', vertical='center')
+                                
+                    # ปรับความกว้างคอลัมน์อัตโนมัติให้พอดีข้อความ (ไม่ล้น ไม่แคบไป)
+                    for col in worksheet.columns:
+                        max_len = max(len(str(cell.value or '')) for cell in col)
+                        col_letter = col[0].column_letter
+                        worksheet.column_dimensions[col_letter].width = max(max_len + 4, 15)
+                        
+                excel_data = output.getvalue()
                 
                 st.download_button(
-                    label="📥 ดาวน์โหลดตารางสรุปผล (Excel/CSV)",
-                    data=csv_data,
-                    file_name=f"turbine_summary_{selected_date}.csv",
-                    mime="text/csv",
+                    label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
+                    data=excel_data,
+                    file_name=f"turbine_summary_{selected_date}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
             else:
