@@ -6,7 +6,7 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ใช้ฟอนต์ Inter สไตล์โรงงานใหญ่)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
 st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
 
@@ -22,6 +22,13 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* บังคับให้ปุ่มเปิด-ปิด Sidebar แสดงผลเสมอ ไม่ให้หายตอนกดพับ */
+    [data-testid="collapsedControl"] {
+        display: block !important;
+        visibility: visible !important;
+        z-index: 999999;
+    }
     
     h1, h2, h3 { 
         color: #1E3A8A; 
