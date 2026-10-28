@@ -6,7 +6,7 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ซ่อนปุ่มพับ Sidebar ถาวร)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Turbine Monitoring System", 
@@ -17,6 +17,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* นำเข้าฟอนต์ Inter จาก Google Fonts เพื่อความคมชัดและเป็นระเบียบระดับสากล */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     html, body, [class*="css"], .stMarkdown, p, span, div {
@@ -25,23 +26,6 @@ st.markdown("""
     
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* ซ่อนปุ่มพับแถบด้านข้าง (Sidebar collapse button) ทุกรูปแบบ */
-    button[kind="header"] {
-        display: none !important;
-    }
-    [data-testid="stSidebarNav"] {
-        display: block;
-    }
-    section[data-testid="stSidebar"] > div:first-child {
-        top: 0px;
-    }
-    /* ปิดการใช้งานปุ่มยุบแถบด้านข้างซ้ายบน */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-    }
     
     h1, h2, h3 { 
         color: #1E3A8A; 
@@ -116,7 +100,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (คาไว้ตลอดถาวร)
+# 3. ส่วน Sidebar (แถบด้านข้างพร้อมปุ่มลูกศรดั้งเดิม)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
