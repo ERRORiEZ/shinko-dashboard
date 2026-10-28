@@ -114,7 +114,7 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร (การ์ดสีสันสวยงามตามรูป) ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร (เปลี่ยนหัวการ์ดให้เป็นสีเรียบ มินิมอลแบบตาราง) ----------------
 with tab1:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
@@ -151,7 +151,7 @@ with tab1:
                 t = title.upper()
                 left_html, right_html = "", ""
                 def tag_l(label, val):
-                    return f'<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"><span style="background-color: #38bdf8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">{label}</span><span style="color: #334155; font-size: 0.95rem; font-weight: bold;">{val}</span></div>'
+                    return f'<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"><span style="background-color: #e2e8f0; color: #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">{label}</span><span style="color: #334155; font-size: 0.95rem; font-weight: bold;">{val}</span></div>'
                 def tag_r(label, val, bg_color):
                     return f'<div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;"><span style="background-color: {bg_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{label}</span><span style="color: #334155; font-size: 0.85rem; font-weight: bold;">{val}</span></div>'
 
@@ -167,8 +167,10 @@ with tab1:
                 elif "BEARING" in t and "TEMP" in t: right_html = tag_r("ALARM(H)", "75 °C", c_alarm)
                 return left_html, right_html
 
-            # ชุดสีสันสดใสไล่ระดับตามรูปตัวอย่างของคุณ
-            header_colors = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
+            # เปลี่ยนสีหัวการ์ดให้เป็นสีเทาอ่อน/สเลทเรียบๆ มินิมอลเหมือนตาราง (#F8FAFC)
+            card_bg_header = "#F8FAFC"
+            card_text_header = "#334155"
+
             num_columns = 2
             for i in range(0, len(all_sensor_cols), num_columns):
                 cols = st.columns(num_columns)
@@ -191,10 +193,9 @@ with tab1:
                             display_val = f"{val:,.2f} {unit}".strip() if val % 1 != 0 else f"{val:,.0f} {unit}".strip()
                         else: display_val = f"{val} {unit}".strip()
                         
-                        bg_color = header_colors[(i + j) % len(header_colors)]
                         left_tags, right_tags = get_threshold_tags(display_title)
                         
-                        card_html = f'<div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 12px 15px; font-weight: bold; font-size: 1rem; text-align: center;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold;">{display_val}</div><div style="flex: 1;">{right_tags}</div></div></div>'
+                        card_html = f'<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {card_bg_header}; color: {card_text_header}; border-bottom: 1px solid #e2e8f0; padding: 12px 15px; font-weight: bold; font-size: 0.95rem; text-align: center;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold;">{display_val}</div><div style="flex: 1;">{right_tags}</div></div></div>'
                         cols[j].markdown(card_html, unsafe_allow_html=True)
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
@@ -207,8 +208,8 @@ with tab1:
                 log_cause = latest_log.get('cause', latest_log.get('description', ''))
                 
                 st.markdown(f"""
-                <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-top: 15px;">
-                    <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.15rem; text-align: center;">⚠️ Event Summary</div>
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); overflow: hidden; margin-top: 15px;">
+                    <div style="background-color: #F8FAFC; color: #334155; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; font-weight: bold; font-size: 1.05rem; text-align: center;">⚠️ Event Summary</div>
                     <div style="padding: 25px; text-align: center; color: #1e293b;">
                         <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #334155;">{log_time_str}</div>
                         <div style="font-size: 1.1rem; margin-bottom: 8px; font-weight: 500;">{log_msg}</div>
@@ -290,10 +291,9 @@ with tab2:
                             if col_num > 1 and isinstance(cell.value, (int, float)):
                                 cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
                                 
-                    for col in worksheet.columns:
-                        for column in worksheet.columns:
-                            max_len_col = max(len(str(cell.value or '')) for cell in column)
-                            worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
+                    for column in worksheet.columns:
+                        max_len_col = max(len(str(cell.value or '')) for cell in column)
+                        worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
                         
                 excel_data = output.getvalue()
                 st.download_button(
@@ -340,10 +340,7 @@ with tab3:
                 c_title = str(c_name).upper().replace('_', ' ')
                 val_str = f"{val:,.2f}" if isinstance(val, (int, float)) and val % 1 != 0 else (f"{val:,.0f}" if isinstance(val, (int, float)) else str(val))
                 
-                # ใช้ชุดสีสันสดใสไล่ระดับตามการ์ดในการแสดงผลการอัปโหลดเช่นกัน
-                bg_color = header_colors[idx % len(header_colors)]
-                
-                card_box = f'<div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);"><div style="background-color: {bg_color}; color: white; padding: 12px 15px; font-weight: bold; font-size: 1rem; text-align: center;">{c_title}</div><div style="padding: 20px; text-align: center; color: #0f172a; font-size: 1.8rem; font-weight: bold;">{val_str}</div></div>'
+                card_box = f'<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);"><div style="background-color: #F8FAFC; color: #334155; border-bottom: 1px solid #e2e8f0; padding: 12px 15px; font-weight: bold; font-size: 0.95rem; text-align: center;">{c_title}</div><div style="padding: 20px; text-align: center; color: #0f172a; font-size: 1.8rem; font-weight: bold;">{val_str}</div></div>'
                 cols[idx % 2].markdown(card_box, unsafe_allow_html=True)
                 
             st.markdown("### 📋 ตารางข้อมูลดิบจากไฟล์ที่คุณอัปโหลด")
