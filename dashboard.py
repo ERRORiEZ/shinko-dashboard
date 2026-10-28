@@ -27,7 +27,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_resource
 def init_connection():
@@ -79,9 +79,9 @@ if df.empty:
 else:
     # ---------------- Sidebar ----------------
     with st.sidebar:
-        st.header("⚡ ควบคุมระบบ")
+        st.header("⚡ ควบคุมระบบ Real-time")
         
-        auto_refresh = st.toggle("เปิดโหมดดึงข้อมูลอัตโนมัติ (ทุกๆ 60 วินาที)", value=False)
+        auto_refresh = st.toggle("เปิดโหมด Auto-Refresh (ทุก 60 วิ)", value=False)
         
         if auto_refresh:
             st.success("🟢 ระบบกำลังดึงข้อมูลอัตโนมัติ")
@@ -135,7 +135,7 @@ else:
                 elif 'temp' in name:
                     return "°C"
                 elif 'press' in name or 'pressure' in name:
-                    return "barG" if 'barg' not in name else "barG"
+                    return "barG"
                 elif 'speed' in name or 'rpm' in name:
                     return "RPM"
                 elif 'watt' in name or 'power' in name or 'generator' in name:
@@ -149,7 +149,6 @@ else:
                 else:
                     return ""
             
-            # ฟังก์ชันสร้างป้าย Threshold ซ้ายขวา (ปรับให้เป็นบรรทัดเดียวป้องกัน HTML แตก)
             def get_threshold_tags(title):
                 t = title.upper()
                 left_html, right_html = "", ""
@@ -160,8 +159,8 @@ else:
                 def tag_r(label, val, bg_color):
                     return f'<div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;"><span style="background-color: {bg_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{label}</span><span style="color: #334155; font-size: 0.85rem; font-weight: bold;">{val}</span></div>'
 
-                c_alarm = "#f59e0b" # สีส้มเหลือง
-                c_trip = "#ef4444"  # สีแดง
+                c_alarm = "#f59e0b" 
+                c_trip = "#ef4444"  
 
                 if "GENERATOR" in t and "OUTPUT" in t:
                     left_html = tag_l("RATED", "18,000 kW")
@@ -217,34 +216,25 @@ else:
                             display_val = "N/A"
                         elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower() or 'stamp' in col_name.lower():
                             if 'running' in col_name.lower() or 'run' in col_name.lower():
-                                display_val = f"{val:,.0f} {unit}".strip() if isinstance(val, (int, float)) else f"{val} {unit}".strip()
+                                display_val = f"{val} {unit}".strip()
                             else:
                                 try:
                                     display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M:%S')
                                 except:
                                     display_val = str(val)
-                        elif isinstance(val, (int, float)):
-                            if val % 1 != 0:
-                                display_val = f"{val:,.2f} {unit}".strip()
-                            else:
-                                display_val = f"{val:,.0f} {unit}".strip()
                         else:
+                            # แสดงค่าเดิมตามต้นฉบับ ไม่มีการจัดรูปแบบทศนิยมบังคับ
                             display_val = f"{val} {unit}".strip()
                         
                         bg_color = header_colors[(i + j) % len(header_colors)]
-                        
-                        # ดึงโค้ด HTML ของป้ายซ้าย/ขวา
                         left_tags, right_tags = get_threshold_tags(display_title)
                         
-                        # สร้าง HTML Layout โดยเขียนเป็นบรรทัดเดียวเพื่อป้องกัน Streamlit Markdown Bug
                         card_html = f'<div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold; white-space: nowrap;">{display_val}</div><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">{right_tags}</div></div></div>'
                         cols[j].markdown(card_html, unsafe_allow_html=True)
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
             
-            # --- ส่วนแสดงกล่อง Event Summary ด้านล่างสุด ---
             st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
-            
             if not df_logs.empty:
                 latest_log = df_logs.iloc[0]
                 log_time = latest_log.get('created_at', latest_log.get('timestamp', 'N/A'))
@@ -301,10 +291,9 @@ else:
                     numeric_cols.append(col)
             
             if numeric_cols:
+                # คำนวณค่าสถิติแบบดึงค่าเดิมจากฐานข้อมูลโดยไม่ปัดเศษ
                 summary_df = daily_df[numeric_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                
-                summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 
                 formatted_index = []
                 for col in summary_df.index:
@@ -324,6 +313,7 @@ else:
                 
                 summary_df.index = formatted_index
                 
+                # แสดงผลบนหน้าเว็บแบบจัดหน้าสวยงาม (ยังคงค่าเดิมเต็มๆ)
                 st.dataframe(summary_df, use_container_width=True)
                 
                 csv_data = summary_df.to_csv().encode('utf-8-sig')
