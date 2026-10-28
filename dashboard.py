@@ -110,11 +110,11 @@ with st.sidebar:
     st.caption("Developed for Senior Project")
 
 # ==========================================
-# 4. สร้าง 3 แท็บหลัก (เพิ่มแท็บอัปโหลด Excel เป็นแท็บที่ 3)
+# 4. สร้าง 3 แท็บหลัก (ครบถ้วนสมบูรณ์)
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร (ระบบหลัก) ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร (Live Status + Event Log) ----------------
 with tab1:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
@@ -175,23 +175,50 @@ with tab1:
                     if i + j < len(all_sensor_cols):
                         col_name = all_sensor_cols[i + j]
                         val = latest_data[col_name]
-                        display_title = str(col_name).upper().replace('_', ' ')
-                        unit = get_unit(col_name)
                         
-                        if pd.isna(val) or val is None:
-                            display_val = "N/A"
+                        raw_name = str(col_name).upper().replace('_', ' ')
+                        if "START" in raw_name and "TIME" in raw_name: display_title = "THE LAST START UP DATE TIME"
+                        elif "START" in raw_name: display_title = "THE NUMBER OF STARTS"
+                        elif "TRIP" in raw_name: display_title = "THE NUMBER OF TRIPS"
+                        elif "ALARM" in raw_name: display_title = "THE NUMBER OF ALARMS"
+                        elif "RUNNING" in raw_name or "RUN" in raw_name: display_title = "TURBINE RUNNING TIME"
+                        else: display_title = raw_name
+
+                        unit = get_unit(col_name)
+                        if pd.isna(val) or val is None: display_val = "N/A"
                         elif isinstance(val, (int, float)):
                             display_val = f"{val:,.2f} {unit}".strip() if val % 1 != 0 else f"{val:,.0f} {unit}".strip()
-                        else:
-                            display_val = f"{val} {unit}".strip()
+                        else: display_val = f"{val} {unit}".strip()
                         
                         bg_color = header_colors[(i + j) % len(header_colors)]
                         left_tags, right_tags = get_threshold_tags(display_title)
                         
                         card_html = f'<div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold;">{display_val}</div><div style="flex: 1;">{right_tags}</div></div></div>'
                         cols[j].markdown(card_html, unsafe_allow_html=True)
+                        
+            st.markdown("<br><hr>", unsafe_allow_html=True)
+            st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
+            if not df_logs.empty:
+                latest_log = df_logs.iloc[0]
+                log_time = latest_log.get('created_at', latest_log.get('timestamp', 'N/A'))
+                log_time_str = log_time.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(log_time) and hasattr(log_time, 'strftime') else str(log_time)
+                log_msg = latest_log.get('message', latest_log.get('event', 'Turbine event occurred.'))
+                log_cause = latest_log.get('cause', latest_log.get('description', ''))
+                
+                st.markdown(f"""
+                <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-top: 15px;">
+                    <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.15rem; text-align: center;">⚠️ Event Summary</div>
+                    <div style="padding: 25px; text-align: center; color: #1e293b;">
+                        <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #334155;">{log_time_str}</div>
+                        <div style="font-size: 1.1rem; margin-bottom: 8px; font-weight: 500;">{log_msg}</div>
+                        <div style="font-size: 1.05rem; color: #e11d48; font-weight: bold;">{log_cause}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-# ---------------- แท็บที่ 2: สรุปภาพรวม (ระบบหลัก) ----------------
+# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary + Charts + Excel Download) ----------------
 with tab2:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ...")
@@ -210,9 +237,17 @@ with tab2:
             col3.metric("⏱️ จำนวนข้อมูล (รายการ)", f"{len(daily_df):,}")
             
             st.markdown("<br>", unsafe_allow_html=True)
+            st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
+            if 'generator_output' in daily_df.columns:
+                chart_data = daily_df.set_index('created_at')['generator_output']
+                st.area_chart(chart_data, color="#3b82f6") 
+            else:
+                st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
+
+            st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
             
-            numeric_cols = [col for col in daily_df.select_dtypes(include=['float64', 'int64']).columns if col not in ['id']]
+            numeric_cols = [col for col in daily_df.select_dtypes(include=['float64', 'int64']).columns if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower())]
             if numeric_cols:
                 summary_df = daily_df[numeric_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
@@ -220,6 +255,51 @@ with tab2:
                 
                 display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 st.dataframe(display_summary_df, use_container_width=True)
+                
+                # --- สร้างไฟล์ Excel (.xlsx) สวยงามพร้อมดาวน์โหลด ---
+                export_df = summary_df.reset_index()
+                export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
+                    workbook = writer.book
+                    worksheet = writer.sheets['Summary']
+                    
+                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                    thin_border = Border(left=Side(style='thin', color='CCCCCC'), right=Side(style='thin', color='CCCCCC'), top=Side(style='thin', color='CCCCCC'), bottom=Side(style='thin', color='CCCCCC'))
+                    header_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+                    header_font = Font(name='Calibri', size=11, bold=True)
+                    cell_font = Font(name='Calibri', size=11)
+                    
+                    for col_num in range(1, len(export_df.columns) + 1):
+                        cell = worksheet.cell(row=1, column=col_num)
+                        cell.font = header_font
+                        cell.fill = header_fill
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                        cell.border = thin_border
+                        
+                    for row_num in range(2, len(export_df) + 2):
+                        for col_num in range(1, len(export_df.columns) + 1):
+                            cell = worksheet.cell(row=row_num, column=col_num)
+                            cell.font = cell_font
+                            cell.border = thin_border
+                            cell.alignment = Alignment(horizontal='left', vertical='center') if col_num == 1 else Alignment(horizontal='right', vertical='center')
+                            if col_num > 1 and isinstance(cell.value, (int, float)):
+                                cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
+                                
+                    for col in worksheet.columns:
+                        max_len = max(len(str(cell.value or '')) for cell in col)
+                        worksheet.column_dimensions[col[0].column_letter].width = max(max_len + 5, 18)
+                        
+                excel_data = output.getvalue()
+                st.download_button(
+                    label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
+                    data=excel_data,
+                    file_name=f"turbine_summary_{selected_date}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
 
 # ---------------- แท็บที่ 3: อัปโหลดไฟล์ Excel แยกต่างหาก ----------------
 with tab3:
@@ -230,10 +310,7 @@ with tab3:
     
     if uploaded_file is not None:
         try:
-            if uploaded_file.name.endswith('.csv'):
-                up_df = pd.read_csv(uploaded_file)
-            else:
-                up_df = pd.read_excel(uploaded_file)
+            up_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
                 
             if 'created_at' not in up_df.columns and 'timestamp' in up_df.columns:
                 up_df['created_at'] = pd.to_datetime(up_df['timestamp'])
@@ -253,7 +330,6 @@ with tab3:
             st.success("🎉 อัปโหลดและประมวลผลไฟล์สำเร็จ! ข้อมูลถูกแสดงผลด้านล่างนี้ครับ")
             st.markdown("---")
             
-            # แสดงการ์ดมอนิเตอร์จากไฟล์ที่อัปโหลด
             up_sensor_cols = [c for c in latest_up.index if c not in skip_cols]
             cols = st.columns(2)
             for idx, c_name in enumerate(up_sensor_cols):
