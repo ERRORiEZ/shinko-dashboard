@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import time
 import io
-from supabase import create_client, Client
+import urllib.request
+import json
 
 # ==========================================
 # 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
@@ -25,43 +26,56 @@ st.markdown("ระบบมอนิเตอร์ประสิทธิภ�
 st.markdown("---")
 
 # ==========================================
-# 2. ตั้งค่าการเชื่อมต่อ Supabase (ใช้ชุดเดิมที่เสถียรที่สุด)
+# 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
-@st.cache_resource
-def init_connection():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
-    
-supabase = init_connection()
-
 # ==========================================
-# 3. ฟังก์ชันดึงข้อมูล (แบบดั้งเดิมที่ใช้งานได้ชัวร์)
+# 3. ฟังก์ชันดึงข้อมูลผ่าน REST API (ปลอดภัย 100% ไม่ติด Pydantic Error)
 # ==========================================
 @st.cache_data(ttl=2) 
 def load_data():
-    response = supabase.table("shinko_data").select("*").execute()
-    df = pd.DataFrame(response.data)
-    
-    if not df.empty:
-        df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
-        df['date_only'] = df['created_at'].dt.date
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/shinko_data?select=*"
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        })
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
         
-        skip_cols = ['id', 'created_at', 'date_only']
-        for col in df.columns:
-            if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+        df = pd.DataFrame(data)
         
-        df = df.sort_values('created_at')
-        
-    return df
+        if not df.empty:
+            if 'created_at' in df.columns:
+                df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
+                df['date_only'] = df['created_at'].dt.date
+            
+            skip_cols = ['id', 'created_at', 'date_only']
+            for col in df.columns:
+                if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
+                    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+            
+            if 'created_at' in df.columns:
+                df = df.sort_values('created_at')
+        return df
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล shinko_data: {e}")
+        return pd.DataFrame()
 
 @st.cache_data(ttl=2) 
 def load_logs_data():
     try:
-        response = supabase.table("turbine_logs").select("*").execute()
-        df_logs = pd.DataFrame(response.data)
+        url = f"{SUPABASE_URL}/rest/v1/turbine_logs?select=*"
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        })
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
+        
+        df_logs = pd.DataFrame(data)
         if not df_logs.empty and 'created_at' in df_logs.columns:
             df_logs['created_at'] = pd.to_datetime(df_logs['created_at']).dt.tz_convert('Asia/Bangkok')
             df_logs = df_logs.sort_values('created_at', ascending=False)
@@ -100,11 +114,14 @@ else:
         st.header("⚙️ ตั้งค่าระบบ")
         electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
         
-        available_dates = df['date_only'].unique()
-        selected_date = st.selectbox("📅 เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1)
+        available_dates = df['date_only'].unique() if 'date_only' in df.columns else []
+        selected_date = st.selectbox("📅 เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1) if len(available_dates) > 0 else None
         st.caption("Developed for Senior Project")
 
-    daily_df = df[df['date_only'] == selected_date].copy()
+    if selected_date is not None and not df.empty:
+        daily_df = df[df['date_only'] == selected_date].copy()
+    else:
+        daily_df = pd.DataFrame()
     
     if not daily_df.empty:
         watt_max = daily_df['watt_hour'].max() if 'watt_hour' in daily_df.columns else 0
