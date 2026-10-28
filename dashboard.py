@@ -28,7 +28,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_resource
 def init_connection():
@@ -37,31 +37,38 @@ def init_connection():
 supabase = init_connection()
 
 # ==========================================
-# 3. ฟังก์ชันดึงข้อมูล 
+# 3. ฟังก์ชันดึงข้อมูล (ปรับแก้ให้รองรับเวอร์ชันล่าสุด)
 # ==========================================
 @st.cache_data(ttl=2) 
 def load_data():
-    response = supabase.table("shinko_data").select("*").execute()
-    df = pd.DataFrame(response.data)
-    
-    if not df.empty:
-        df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
-        df['date_only'] = df['created_at'].dt.date
+    try:
+        response = supabase.table("shinko_data").select("*").limit(1000).execute()
+        data = response.data if hasattr(response, 'data') else response[1]
+        df = pd.DataFrame(data)
         
-        skip_cols = ['id', 'created_at', 'date_only']
-        for col in df.columns:
-            if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
-        
-        df = df.sort_values('created_at')
-        
-    return df
+        if not df.empty:
+            if 'created_at' in df.columns:
+                df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
+                df['date_only'] = df['created_at'].dt.date
+            
+            skip_cols = ['id', 'created_at', 'date_only']
+            for col in df.columns:
+                if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
+                    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+            
+            if 'created_at' in df.columns:
+                df = df.sort_values('created_at')
+        return df
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล shinko_data: {e}")
+        return pd.DataFrame()
 
 @st.cache_data(ttl=2) 
 def load_logs_data():
     try:
-        response = supabase.table("turbine_logs").select("*").execute()
-        df_logs = pd.DataFrame(response.data)
+        response = supabase.table("turbine_logs").select("*").limit(100).execute()
+        data = response.data if hasattr(response, 'data') else response[1]
+        df_logs = pd.DataFrame(data)
         if not df_logs.empty and 'created_at' in df_logs.columns:
             df_logs['created_at'] = pd.to_datetime(df_logs['created_at']).dt.tz_convert('Asia/Bangkok')
             df_logs = df_logs.sort_values('created_at', ascending=False)
@@ -97,11 +104,14 @@ else:
         st.header("⚙️ ตั้งค่าระบบ")
         electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
         
-        available_dates = df['date_only'].unique()
-        selected_date = st.selectbox("📅 เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1)
+        available_dates = df['date_only'].unique() if 'date_only' in df.columns else []
+        selected_date = st.selectbox("📅 เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1) if len(available_dates) > 0 else None
         st.caption("Developed for Senior Project")
 
-    daily_df = df[df['date_only'] == selected_date].copy()
+    if selected_date is not None:
+        daily_df = df[df['date_only'] == selected_date].copy()
+    else:
+        daily_df = pd.DataFrame()
     
     if not daily_df.empty:
         watt_max = daily_df['watt_hour'].max() if 'watt_hour' in daily_df.columns else 0
@@ -312,7 +322,6 @@ else:
                 
                 summary_df.index = formatted_index
                 
-                # แสดงผลบนหน้าเว็บ
                 st.dataframe(summary_df, use_container_width=True)
                 
                 # --- สร้างไฟล์ Excel (.xlsx) พร้อมจัดกรอบและปรับความกว้างอัตโนมัติ ---
@@ -323,13 +332,11 @@ else:
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
                     
-                    # จัดแต่งสไตล์ Excel (เพิ่มกรอบตาราง และขยายความกว้างช่องพอดี)
                     workbook = writer.book
                     worksheet = writer.sheets['Summary']
                     
                     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
                     
-                    # สไตล์เส้นกรอบ
                     thin_border = Border(
                         left=Side(style='thin', color='CCCCCC'),
                         right=Side(style='thin', color='CCCCCC'),
@@ -341,7 +348,6 @@ else:
                     header_font = Font(name='Calibri', size=11, bold=True)
                     cell_font = Font(name='Calibri', size=11)
                     
-                    # จัดฟอร์มแถวหัวตาราง (Row 1)
                     for col_num in range(1, len(export_df.columns) + 1):
                         cell = worksheet.cell(row=1, column=col_num)
                         cell.font = header_font
@@ -349,19 +355,16 @@ else:
                         cell.alignment = Alignment(horizontal='center', vertical='center')
                         cell.border = thin_border
                         
-                    # จัดฟอร์มข้อมูลในตาราง
                     for row_num in range(2, len(export_df) + 2):
                         for col_num in range(1, len(export_df.columns) + 1):
                             cell = worksheet.cell(row=row_num, column=col_num)
                             cell.font = cell_font
                             cell.border = thin_border
-                            # คอลัมน์แรกชิดซ้าย คอลัมน์ตัวเลขชิดขวา
                             if col_num == 1:
                                 cell.alignment = Alignment(horizontal='left', vertical='center')
                             else:
                                 cell.alignment = Alignment(horizontal='right', vertical='center')
                                 
-                    # ปรับความกว้างคอลัมน์อัตโนมัติให้พอดีข้อความ (ไม่ล้น ไม่แคบไป)
                     for col in worksheet.columns:
                         max_len = max(len(str(cell.value or '')) for cell in col)
                         col_letter = col[0].column_letter
