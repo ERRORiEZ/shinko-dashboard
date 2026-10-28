@@ -23,11 +23,18 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* บังคับให้ปุ่มเปิด-ปิด Sidebar แสดงผลเสมอ ไม่ให้หายตอนกดพับ */
+    /* 🛠️ บังคับให้ปุ่มเปิด-ปิด Sidebar และปุ่มควบคุมทั้งหมดแสดงผลเสมอ ไม่ให้หายตอนกดพับ */
     [data-testid="collapsedControl"] {
         display: block !important;
         visibility: visible !important;
+        opacity: 1 !important;
         z-index: 999999;
+    }
+    
+    button[kind="header"] {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
     
     h1, h2, h3 { 
