@@ -6,9 +6,14 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ล็อก Sidebar ให้คาไว้ตลอดถาวร)
 # ==========================================
-st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
+st.set_page_config(
+    page_title="Turbine Monitoring System", 
+    page_icon="⚙️", 
+    layout="wide",
+    initial_sidebar_state="expanded"  # บังคับให้เปิด Sidebar ไว้ตั้งแต่เริ่ม
+)
 
 st.markdown("""
 <style>
@@ -21,6 +26,11 @@ st.markdown("""
     
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* ซ่อนปุ่มพับ Sidebar ออกไปเลย เพื่อให้ Sidebar คาไว้ตลอดถาวร */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
     
     h1, h2, h3 { 
         color: #1E3A8A; 
@@ -95,7 +105,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar ทั่วไป
+# 3. ส่วน Sidebar (คาไว้ตลอดถาวร)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
