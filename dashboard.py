@@ -6,7 +6,7 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ปรับตารางให้เรียบหรู มินิมอล)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
 st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
 
@@ -21,13 +21,6 @@ st.markdown("""
     h1, h2, h3 { color: #1E3A8A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .latest-time { color: #e11d48; font-weight: bold; font-size: 1.2rem; }
     .status-live { color: #10b981; font-weight: bold; }
-    
-    /* ปรับแต่งสไตล์ตาราง Streamlit ให้เรียบง่าย สบายตา คล้ายตัวอย่าง */
-    [data-testid="stDataFrame"] {
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        overflow: hidden;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -263,7 +256,7 @@ with tab2:
                 display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 st.dataframe(display_summary_df, use_container_width=True)
                 
-                # --- สร้างไฟล์ Excel (.xlsx) สไตล์เรียบหรู พร้อมดาวน์โหลด ---
+                # --- สร้างไฟล์ Excel (.xlsx) สไตล์เรียบหรู มินิมอล ---
                 export_df = summary_df.reset_index()
                 export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
@@ -276,7 +269,6 @@ with tab2:
                     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
                     thin_border = Border(left=Side(style='thin', color='E2E8F0'), right=Side(style='thin', color='E2E8F0'), top=Side(style='thin', color='E2E8F0'), bottom=Side(style='thin', color='E2E8F0'))
                     
-                    # ปรับหัวตารางให้เป็นสีเทาอ่อนสะอาดตาแบบมินิมอลตามรูปตัวอย่าง
                     header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
                     header_font = Font(name='Segoe UI', size=11, bold=True, color='334155')
                     cell_font = Font(name='Segoe UI', size=11, color='1E293B')
@@ -351,7 +343,6 @@ with tab3:
                 
             st.markdown("### 📋 ตารางข้อมูลดิบจากไฟล์ที่คุณอัปโหลด")
             
-            # ปรับแต่งการแสดงผลตารางให้อ่านง่ายและสะอาดตาขึ้น
             display_up_df = up_df.copy()
             for col in display_up_df.select_dtypes(include=['float64', 'int64']).columns:
                 display_up_df[col] = display_up_df[col].apply(lambda x: f"{x:,.2f}" if pd.notna(x) and x % 1 != 0 else (f"{x:,.0f}" if pd.notna(x) else x))
