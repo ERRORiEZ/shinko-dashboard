@@ -6,7 +6,7 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ซ่อนปุ่มพับ Sidebar แบบถาวร)
 # ==========================================
 st.set_page_config(
     page_title="Turbine Monitoring System", 
@@ -26,9 +26,13 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* ซ่อนปุ่มหรือข้อความควบคุมแถบด้านข้างที่แสดงผลผิดพลาดออกไป */
-    [data-testid="collapsedControl"] {
+    /* ซ่อนปุ่มลูกศรและปุ่มพับ Sidebar ทุกรูปแบบใน Streamlit รุ่นใหม่และเก่า */
+    [data-testid="collapsedControl"], 
+    button[kind="header"], 
+    header [data-testid="baseButton-header"] {
         display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
     
     h1, h2, h3 { 
@@ -104,7 +108,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar
+# 3. ส่วน Sidebar (คาไว้ตลอดถาวร)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
