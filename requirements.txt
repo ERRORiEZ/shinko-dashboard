@@ -2,3 +2,4 @@ streamlit
 pandas
 supabase
 jinja2
+openpyxl
