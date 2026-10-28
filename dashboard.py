@@ -6,15 +6,18 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - พร้อมแก้ไอคอน Sidebar ให้กลับมาปกติ)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
-st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
+st.set_page_config(
+    page_title="Turbine Monitoring System", 
+    page_icon="⚙️", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 st.markdown("""
 <style>
-    /* นำเข้าฟอนต์ Inter และบังคับการแสดงผลไอคอนปุ่มพับ Sidebar */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/icon?family=Material+Icons+Outlined');
 
     html, body, [class*="css"], .stMarkdown, p, span, div {
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
@@ -23,9 +26,9 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* แก้ไขให้ไอคอนปุ่มพับแถบด้านข้างแสดงผลถูกต้อง ไม่แสดงเป็นตัวหนังสือชื่อโค้ดดิบ */
-    [data-testid="collapsedControl"] span {
-        font-family: 'Material Icons Outlined' !important;
+    /* ซ่อนปุ่มหรือข้อความควบคุมแถบด้านข้างที่แสดงผลผิดพลาดออกไป */
+    [data-testid="collapsedControl"] {
+        display: none !important;
     }
     
     h1, h2, h3 { 
@@ -101,7 +104,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (แถบด้านข้าง)
+# 3. ส่วน Sidebar
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
