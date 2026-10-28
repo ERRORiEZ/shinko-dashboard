@@ -28,6 +28,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
+# ⚠️ (ถ้าคีย์เดิมมีปัญหา นำ Supabase Anon Key ล่าสุดมาวางแทนที่ตรงนี้ครับ)
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_resource
@@ -37,7 +38,7 @@ def init_connection():
 supabase = init_connection()
 
 # ==========================================
-# 3. ฟังก์ชันดึงข้อมูล (ปรับแก้ให้รองรับเวอร์ชันล่าสุด)
+# 3. ฟังก์ชันดึงข้อมูล 
 # ==========================================
 @st.cache_data(ttl=2) 
 def load_data():
@@ -79,11 +80,14 @@ def load_logs_data():
 df = load_data()
 df_logs = load_logs_data()
 
+# กำหนดค่าเริ่มต้นให้กับ auto_refresh เพื่อป้องกัน NameError
+auto_refresh = False
+
 # ==========================================
 # 4. ส่วนแสดงผลหน้า Dashboard
 # ==========================================
 if df.empty:
-    st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
+    st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล... (โปรดตรวจสอบ API Key ของ Supabase อีกครั้ง)")
 else:
     # ---------------- Sidebar ----------------
     with st.sidebar:
@@ -108,7 +112,7 @@ else:
         selected_date = st.selectbox("📅 เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1) if len(available_dates) > 0 else None
         st.caption("Developed for Senior Project")
 
-    if selected_date is not None:
+    if selected_date is not None and not df.empty:
         daily_df = df[df['date_only'] == selected_date].copy()
     else:
         daily_df = pd.DataFrame()
