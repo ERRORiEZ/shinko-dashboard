@@ -79,9 +79,9 @@ if df.empty:
 else:
     # ---------------- Sidebar ----------------
     with st.sidebar:
-        st.header("⚡ ควบคุมระบบ Real-time")
+        st.header("⚡ ควบคุมระบบ")
         
-        auto_refresh = st.toggle("เปิดโหมด Auto-Refresh (ทุก 60 วิ)", value=False)
+        auto_refresh = st.toggle("เปิดโหมดดึงข้อมูลอัตโนมัติ (ทุกๆ 60 วินาที)", value=False)
         
         if auto_refresh:
             st.success("🟢 ระบบกำลังดึงข้อมูลอัตโนมัติ")
