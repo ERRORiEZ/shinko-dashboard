@@ -19,7 +19,6 @@ st.markdown("""
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
     
-    /* ซ่อนเฉพาะเมนู 3 ขีดขวาบน (MainMenu) แต่ปล่อยให้เฮดเดอร์และปุ่มพับ Sidebar แสดงปกติ */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
