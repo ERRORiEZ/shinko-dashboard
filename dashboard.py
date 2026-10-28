@@ -32,7 +32,7 @@ SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 # ==========================================
-# 3. ฟังก์ชันดึงข้อมูลผ่าน REST API (ปลอดภัย 100% ไม่ติด Pydantic Error)
+# 3. ฟังก์ชันดึงข้อมูลผ่าน REST API 
 # ==========================================
 @st.cache_data(ttl=2) 
 def load_data():
@@ -237,12 +237,18 @@ else:
                             display_val = "N/A"
                         elif isinstance(val, pd.Timestamp) or 'time' in col_name.lower() or 'date' in col_name.lower() or 'stamp' in col_name.lower():
                             if 'running' in col_name.lower() or 'run' in col_name.lower():
-                                display_val = f"{val} {unit}".strip()
+                                display_val = f"{val:,.0f} {unit}".strip() if isinstance(val, (int, float)) else f"{val} {unit}".strip()
                             else:
                                 try:
                                     display_val = pd.to_datetime(val).strftime('%Y-%m-%d %H:%M:%S')
                                 except:
                                     display_val = str(val)
+                        elif isinstance(val, (int, float)):
+                            # จัดรูปแบบใส่จุลภาคคั่นหลักพันบนหน้าเว็บ
+                            if val % 1 != 0:
+                                display_val = f"{val:,.2f} {unit}".strip()
+                            else:
+                                display_val = f"{val:,.0f} {unit}".strip()
                         else:
                             display_val = f"{val} {unit}".strip()
                         
@@ -332,9 +338,11 @@ else:
                 
                 summary_df.index = formatted_index
                 
-                st.dataframe(summary_df, use_container_width=True)
+                # สร้างตารางสำหรับแสดงบนเว็บแบบจัดรูปแบบใส่คอมมาให้อ่านง่าย
+                display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
+                st.dataframe(display_summary_df, use_container_width=True)
                 
-                # --- สร้างไฟล์ Excel (.xlsx) พร้อมจัดกรอบและปรับความกว้างอัตโนมัติ ---
+                # --- สร้างไฟล์ Excel (.xlsx) พร้อมจัดกรอบ ปรับความกว้าง และใส่เครื่องหมายลูกน้ำหลักพัน ---
                 export_df = summary_df.reset_index()
                 export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
@@ -370,15 +378,21 @@ else:
                             cell = worksheet.cell(row=row_num, column=col_num)
                             cell.font = cell_font
                             cell.border = thin_border
+                            
                             if col_num == 1:
                                 cell.alignment = Alignment(horizontal='left', vertical='center')
                             else:
                                 cell.alignment = Alignment(horizontal='right', vertical='center')
+                                if isinstance(cell.value, (int, float)):
+                                    if str(cell.value).endswith('.0') or isinstance(cell.value, int):
+                                        cell.number_format = '#,##0'
+                                    else:
+                                        cell.number_format = '#,##0.00'
                                 
                     for col in worksheet.columns:
                         max_len = max(len(str(cell.value or '')) for cell in col)
                         col_letter = col[0].column_letter
-                        worksheet.column_dimensions[col_letter].width = max(max_len + 4, 15)
+                        worksheet.column_dimensions[col_letter].width = max(max_len + 5, 18)
                         
                 excel_data = output.getvalue()
                 
