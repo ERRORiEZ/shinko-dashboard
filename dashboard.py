@@ -6,18 +6,13 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS) - คงโครงสร้างปุ่มลูกศรเดิมครบถ้วน
 # ==========================================
-st.set_page_config(
-    page_title="Turbine Monitoring System", 
-    page_icon="⚙️", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
 
 st.markdown("""
 <style>
-    /* นำเข้าฟอนต์ Inter จาก Google Fonts เพื่อความคมชัดและเป็นระเบียบระดับสากล */
+    /* นำเข้าฟอนต์ Inter จาก Google Fonts เพื่อความคมชัดและเป็นระเบียบ */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     html, body, [class*="css"], .stMarkdown, p, span, div {
@@ -100,7 +95,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (แถบด้านข้างพร้อมปุ่มลูกศรดั้งเดิม)
+# 3. ส่วน Sidebar (แถบด้านข้างเดิม)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
