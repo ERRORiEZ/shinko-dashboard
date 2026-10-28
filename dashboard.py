@@ -19,23 +19,9 @@ st.markdown("""
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
     
+    /* ซ่อนเฉพาะเมนู 3 ขีดขวาบน (MainMenu) แต่ปล่อยให้เฮดเดอร์และปุ่มพับ Sidebar แสดงปกติ */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* 🛠️ บังคับให้ปุ่มเปิด-ปิด Sidebar และปุ่มควบคุมทั้งหมดแสดงผลเสมอ ไม่ให้หายตอนกดพับ */
-    [data-testid="collapsedControl"] {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 999999;
-    }
-    
-    button[kind="header"] {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
     
     h1, h2, h3 { 
         color: #1E3A8A; 
