@@ -29,8 +29,7 @@ st.markdown("---")
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
 # ⚠️ (ถ้าคีย์เดิมมีปัญหา นำ Supabase Anon Key ล่าสุดมาวางแทนที่ตรงนี้ครับ)
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
-
+SUPABASE_KEY = "sb_publishable_1KlEzYZMRVkBgaeIuQ5DCg_BSaxHJhe"
 @st.cache_resource
 def init_connection():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
