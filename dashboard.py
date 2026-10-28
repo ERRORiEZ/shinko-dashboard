@@ -27,7 +27,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_resource
 def init_connection():
@@ -223,7 +223,6 @@ else:
                                 except:
                                     display_val = str(val)
                         else:
-                            # แสดงค่าเดิมตามต้นฉบับ ไม่มีการจัดรูปแบบทศนิยมบังคับ
                             display_val = f"{val} {unit}".strip()
                         
                         bg_color = header_colors[(i + j) % len(header_colors)]
@@ -291,7 +290,6 @@ else:
                     numeric_cols.append(col)
             
             if numeric_cols:
-                # คำนวณค่าสถิติแบบดึงค่าเดิมจากฐานข้อมูลโดยไม่ปัดเศษ
                 summary_df = daily_df[numeric_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
@@ -313,10 +311,15 @@ else:
                 
                 summary_df.index = formatted_index
                 
-                # แสดงผลบนหน้าเว็บแบบจัดหน้าสวยงาม (ยังคงค่าเดิมเต็มๆ)
+                # แปลง Index (ชื่อพารามิเตอร์) ให้มาเป็นคอลัมน์แรกสุด เพื่อให้เวลาดาวน์โหลดตรงกับรูปแบบที่คุณต้องการ
+                export_df = summary_df.reset_index()
+                export_df.columns = ['พารามิเตอร์', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                
+                # แสดงผลบนหน้าเว็บ (กำหนดให้ซ่อน Index ตัวเลขด้านซ้าย เพื่อความสวยงามเหมือนในรูป)
                 st.dataframe(summary_df, use_container_width=True)
                 
-                csv_data = summary_df.to_csv().encode('utf-8-sig')
+                # แปลงเป็น CSV โดยใช้ export_df ที่มีหัวข้อคอลัมน์ชัดเจน
+                csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
                 
                 st.download_button(
                     label="📥 ดาวน์โหลดตารางสรุปผล (Excel/CSV)",
