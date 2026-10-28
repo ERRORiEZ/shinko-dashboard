@@ -6,16 +6,20 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ปรับฟอนต์ให้เหมือนกันทั้งหมด)
 # ==========================================
 st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
 
 st.markdown("""
 <style>
+    /* กำหนดฟอนต์หลักทั้งหน้าเว็บให้เป็นแบบเดียวกันทั้งหมด */
+    html, body, [class*="css"] {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    h1, h2, h3 { color: #1E3A8A; }
+    h1, h2, h3 { color: #1E3A8A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .latest-time { color: #e11d48; font-weight: bold; font-size: 1.2rem; }
     .status-live { color: #10b981; font-weight: bold; }
 </style>
@@ -244,7 +248,6 @@ else:
                                 except:
                                     display_val = str(val)
                         elif isinstance(val, (int, float)):
-                            # จัดรูปแบบใส่จุลภาคคั่นหลักพันบนหน้าเว็บ
                             if val % 1 != 0:
                                 display_val = f"{val:,.2f} {unit}".strip()
                             else:
@@ -255,7 +258,7 @@ else:
                         bg_color = header_colors[(i + j) % len(header_colors)]
                         left_tags, right_tags = get_threshold_tags(display_title)
                         
-                        card_html = f'<div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold; white-space: nowrap;">{display_val}</div><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">{right_tags}</div></div></div>'
+                        card_html = f'<div style="font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 1rem; text-align: center; letter-spacing: 0.5px;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #1e293b; font-size: 1.8rem; font-weight: bold; white-space: nowrap;">{display_val}</div><div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">{right_tags}</div></div></div>'
                         cols[j].markdown(card_html, unsafe_allow_html=True)
                         
             st.markdown("<br><hr>", unsafe_allow_html=True)
@@ -273,7 +276,7 @@ else:
                 log_cause = latest_log.get('cause', latest_log.get('description', ''))
                 
                 st.markdown(f"""
-                <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-top: 15px;">
+                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-top: 15px;">
                     <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.15rem; text-align: center;">
                         ⚠️ Event Summary
                     </div>
@@ -338,7 +341,6 @@ else:
                 
                 summary_df.index = formatted_index
                 
-                # สร้างตารางสำหรับแสดงบนเว็บแบบจัดรูปแบบใส่คอมมาให้อ่านง่าย
                 display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 st.dataframe(display_summary_df, use_container_width=True)
                 
