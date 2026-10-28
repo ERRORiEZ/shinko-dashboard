@@ -6,7 +6,7 @@ import urllib.request
 import json
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ปรับตารางให้เรียบหรู มินิมอล)
 # ==========================================
 st.set_page_config(page_title="Turbine Monitoring System", page_icon="⚙️", layout="wide")
 
@@ -21,6 +21,13 @@ st.markdown("""
     h1, h2, h3 { color: #1E3A8A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .latest-time { color: #e11d48; font-weight: bold; font-size: 1.2rem; }
     .status-live { color: #10b981; font-weight: bold; }
+    
+    /* ปรับแต่งสไตล์ตาราง Streamlit ให้เรียบง่าย สบายตา คล้ายตัวอย่าง */
+    [data-testid="stDataFrame"] {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -110,11 +117,11 @@ with st.sidebar:
     st.caption("Developed for Senior Project")
 
 # ==========================================
-# 4. สร้าง 3 แท็บหลัก (ครบถ้วนสมบูรณ์)
+# 4. สร้าง 3 แท็บหลัก
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร (Live Status + Event Log) ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
 with tab1:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
@@ -218,7 +225,7 @@ with tab1:
             else:
                 st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary + Charts + Excel Download) ----------------
+# ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
 with tab2:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ...")
@@ -256,7 +263,7 @@ with tab2:
                 display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
                 st.dataframe(display_summary_df, use_container_width=True)
                 
-                # --- สร้างไฟล์ Excel (.xlsx) สวยงามพร้อมดาวน์โหลด ---
+                # --- สร้างไฟล์ Excel (.xlsx) สไตล์เรียบหรู พร้อมดาวน์โหลด ---
                 export_df = summary_df.reset_index()
                 export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 
@@ -267,16 +274,18 @@ with tab2:
                     worksheet = writer.sheets['Summary']
                     
                     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-                    thin_border = Border(left=Side(style='thin', color='CCCCCC'), right=Side(style='thin', color='CCCCCC'), top=Side(style='thin', color='CCCCCC'), bottom=Side(style='thin', color='CCCCCC'))
-                    header_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
-                    header_font = Font(name='Calibri', size=11, bold=True)
-                    cell_font = Font(name='Calibri', size=11)
+                    thin_border = Border(left=Side(style='thin', color='E2E8F0'), right=Side(style='thin', color='E2E8F0'), top=Side(style='thin', color='E2E8F0'), bottom=Side(style='thin', color='E2E8F0'))
+                    
+                    # ปรับหัวตารางให้เป็นสีเทาอ่อนสะอาดตาแบบมินิมอลตามรูปตัวอย่าง
+                    header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+                    header_font = Font(name='Segoe UI', size=11, bold=True, color='334155')
+                    cell_font = Font(name='Segoe UI', size=11, color='1E293B')
                     
                     for col_num in range(1, len(export_df.columns) + 1):
                         cell = worksheet.cell(row=1, column=col_num)
                         cell.font = header_font
                         cell.fill = header_fill
-                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                        cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
                         cell.border = thin_border
                         
                     for row_num in range(2, len(export_df) + 2):
@@ -290,7 +299,7 @@ with tab2:
                                 
                     for col in worksheet.columns:
                         max_len = max(len(str(cell.value or '')) for cell in col)
-                        worksheet.column_dimensions[col[0].column_letter].width = max(max_len + 5, 18)
+                        worksheet.column_dimensions[col[0].column_letter].width = max(max_len + 6, 20)
                         
                 excel_data = output.getvalue()
                 st.download_button(
@@ -301,7 +310,7 @@ with tab2:
                     use_container_width=True
                 )
 
-# ---------------- แท็บที่ 3: อัปโหลดไฟล์ Excel แยกต่างหาก ----------------
+# ---------------- แท็บที่ 3: อัปโหลดไฟล์ Excel ----------------
 with tab3:
     st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณเพื่อแสดงผลข้อมูลทันที")
     st.markdown("คุณสามารถลากไฟล์ Excel (`.xlsx` หรือ `.csv`) ที่กรอกข้อมูลเสร็จแล้วมาวางด้านล่างนี้ได้เลย ระบบจะแสดงผลออกมาเป็นหน้าแดชบอร์ดและการ์ดมอนิเตอร์ทันทีครับ")
@@ -341,7 +350,13 @@ with tab3:
                 cols[idx % 2].markdown(card_box, unsafe_allow_html=True)
                 
             st.markdown("### 📋 ตารางข้อมูลดิบจากไฟล์ที่คุณอัปโหลด")
-            st.dataframe(up_df, use_container_width=True)
+            
+            # ปรับแต่งการแสดงผลตารางให้อ่านง่ายและสะอาดตาขึ้น
+            display_up_df = up_df.copy()
+            for col in display_up_df.select_dtypes(include=['float64', 'int64']).columns:
+                display_up_df[col] = display_up_df[col].apply(lambda x: f"{x:,.2f}" if pd.notna(x) and x % 1 != 0 else (f"{x:,.0f}" if pd.notna(x) else x))
+            
+            st.dataframe(display_up_df, use_container_width=True)
             
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
