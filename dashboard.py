@@ -4,10 +4,10 @@ import time
 import io
 import urllib.request
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - แก้ไขปุ่มอัปโหลดโดยเฉพาะ)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Turbine Monitoring System", 
@@ -18,7 +18,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* ตั้งค่าฟอนต์เฉพาะตัวหนังสือทั่วไป */
+    /* กำหนดฟอนต์ Inter เฉพาะแท็กข้อความและหัวข้อ เพื่อไม่ให้กระทบเลย์เอาต์ปุ่มอัปโหลดของ Streamlit */
     html, body, .stMarkdown, p, span, label {
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
@@ -26,23 +26,13 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
+    /* ซ่อนปุ่มพับแถบด้านข้างที่ไม่จำเป็นออก */
     [data-testid="collapsedControl"], 
     button[kind="header"], 
     header [data-testid="baseButton-header"] {
         display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
-    }
-    
-    /* รีเซ็ตสไตล์ของปุ่มอัปโหลดไม่ให้ตัวหนังสือซ้อนทับกัน */
-    [data-testid="stFileUploader"] section {
-        font-family: 'Inter', sans-serif !important;
-    }
-    [data-testid="stFileUploader"] button {
-        position: relative !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
     }
     
     h1, h2, h3 { 
@@ -128,7 +118,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (ควบคุมและปฏิทินเลือกวัน)
+# 3. ส่วน Sidebar (ควบคุมระบบและปฏิทินเลือกวัน)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -149,23 +139,22 @@ with st.sidebar:
     
     st.subheader("📅 เลือกช่วงเวลาข้อมูล")
     
+    default_min = date.today() - timedelta(days=30)
+    default_max = date.today()
+    
     if not df.empty and 'date_only' in df.columns:
         valid_dates = [d for d in df['date_only'].unique() if pd.notna(d)]
         if valid_dates:
-            min_d = min(valid_dates)
-            max_d = max(valid_dates)
-        else:
-            min_d = max_d = date.today()
+            default_min = min(valid_dates)
+            default_max = max(valid_dates)
             
-        selected_dates = st.date_input(
-            "เลือกวันที่ต้องการวิเคราะห์",
-            value=(min_d, max_d),
-            min_value=min_d,
-            max_value=max_d
-        )
-    else:
-        selected_dates = (date.today(), date.today())
-        
+    selected_dates = st.date_input(
+        "เลือกวันที่ต้องการวิเคราะห์",
+        value=(default_min, default_max),
+        min_value=default_min,
+        max_value=default_max
+    )
+    
     st.caption("Developed for Senior Project")
 
 # ==========================================
@@ -173,6 +162,7 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
+# จัดการกรองข้อมูลตามวันที่ผู้ใช้เลือกจากปฏิทิน
 if not df.empty and 'date_only' in df.columns:
     if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
         start_date, end_date = selected_dates
@@ -183,8 +173,8 @@ if not df.empty and 'date_only' in df.columns:
         filtered_df = df[df['date_only'] == start_date]
         latest_date_tab1 = start_date
 else:
-    filtered_df = pd.DataFrame()
-    latest_date_tab1 = None
+    filtered_df = df.copy() if not df.empty else pd.DataFrame()
+    latest_date_tab1 = date.today()
 
 # ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
 with tab1:
