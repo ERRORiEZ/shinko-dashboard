@@ -4,9 +4,10 @@ import time
 import io
 import urllib.request
 import json
+from datetime import datetime, date
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - ซ่อนปุ่มพับ Sidebar แบบถาวร)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Turbine Monitoring System", 
@@ -26,7 +27,6 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* ซ่อนปุ่มลูกศรและปุ่มพับ Sidebar ทุกรูปแบบใน Streamlit รุ่นใหม่และเก่า */
     [data-testid="collapsedControl"], 
     button[kind="header"], 
     header [data-testid="baseButton-header"] {
@@ -54,7 +54,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -108,7 +108,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (คาไว้ตลอดถาวร)
+# 3. ส่วน Sidebar (เปลี่ยนเป็นระบบปฏิทินเลือกวัน)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -127,8 +127,23 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    available_dates = df['date_only'].unique() if not df.empty and 'date_only' in df.columns else []
-    selected_date = st.selectbox("📅 เลือกวันที่ต้องการดูข้อมูล", available_dates, index=len(available_dates)-1) if len(available_dates) > 0 else None
+    # --- เพิ่มฟังก์ชันปฏิทินเลือกวันที่ (Date Picker) ---
+    st.subheader("📅 เลือกช่วงเวลาข้อมูล")
+    
+    if not df.empty and 'date_only' in df.columns:
+        min_d = min(df['date_only'])
+        max_d = max(df['date_only'])
+        
+        # ใช้ st.date_input แบบเลือกช่วง (Tuple: start_date, end_date) หรือเลือกวันเดียวก็ได้
+        selected_dates = st.date_input(
+            "เลือกวันที่ต้องการวิเคราะห์",
+            value=(min_d, max_d),
+            min_value=min_d,
+            max_value=max_d
+        )
+    else:
+        selected_dates = (date.today(), date.today())
+        
     st.caption("Developed for Senior Project")
 
 # ==========================================
@@ -136,18 +151,33 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
+# จัดการกรองข้อมูลตามวันที่ผู้ใช้เลือกจากปฏิทิน
+if not df.empty and 'date_only' in df.columns:
+    if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+        start_date, end_date = selected_dates
+        filtered_df = df[(df['date_only'] >= start_date) & (df['date_only'] <= end_date)]
+        # สำหรับแท็บ Live Status ให้ใช้วันล่าสุดในเกณฑ์ที่เลือก
+        latest_date_tab1 = end_date
+    else:
+        start_date = end_date = selected_dates
+        filtered_df = df[df['date_only'] == start_date]
+        latest_date_tab1 = start_date
+else:
+    filtered_df = pd.DataFrame()
+    latest_date_tab1 = None
+
 # ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
 with tab1:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
     else:
-        daily_df = df[df['date_only'] == selected_date].copy() if selected_date is not None else pd.DataFrame()
+        daily_df = df[df['date_only'] == latest_date_tab1].copy() if latest_date_tab1 is not None else pd.DataFrame()
         if not daily_df.empty:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
             latest_time = latest_data['created_at'].strftime('%H:%M:%S')
             
-            st.subheader("🔴 มอนิเตอร์ค่าเซ็นเซอร์ทุกพารามิเตอร์แบบเรียลไทม์")
+            st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ประจำวันที่ {latest_date_tab1}")
             if auto_refresh:
                 st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             else:
@@ -242,86 +272,84 @@ with tab1:
 
 # ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
 with tab2:
-    if df.empty:
-        st.warning("⏳ ยังไม่มีข้อมูลในระบบ...")
+    if filtered_df.empty:
+        st.warning("⏳ ไม่พบข้อมูลในช่วงเวลาที่เลือก...")
     else:
-        daily_df = df[df['date_only'] == selected_date].copy() if selected_date is not None else pd.DataFrame()
-        if not daily_df.empty:
-            watt_max = daily_df['watt_hour'].max() if 'watt_hour' in daily_df.columns else 0
-            watt_min = daily_df['watt_hour'].min() if 'watt_hour' in daily_df.columns else 0
-            daily_production = watt_max - watt_min
-            daily_revenue = daily_production * 1000 * electric_rate
-            
-            st.subheader(f"📌 สรุปผลการดำเนินงานวันที่ {selected_date}")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("⚡ พลังงานที่ผลิตได้ (MWh)", f"{daily_production:,.3f}")
-            col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{daily_revenue:,.2f}")
-            col3.metric("⏱️ จำนวนข้อมูล (รายการ)", f"{len(daily_df):,}")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
-            if 'generator_output' in daily_df.columns:
-                chart_data = daily_df.set_index('created_at')['generator_output']
-                st.area_chart(chart_data, color="#3b82f6") 
-            else:
-                st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
+        watt_max = filtered_df['watt_hour'].max() if 'watt_hour' in filtered_df.columns else 0
+        watt_min = filtered_df['watt_hour'].min() if 'watt_hour' in filtered_df.columns else 0
+        total_production = watt_max - watt_min
+        total_revenue = total_production * 1000 * electric_rate
+        
+        st.subheader(f"📌 สรุปผลการดำเนินงานตามช่วงเวลาที่เลือก")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("⚡ พลังงานรวมที่ผลิตได้ (MWh)", f"{total_production:,.3f}")
+        col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{total_revenue:,.2f}")
+        col3.metric("⏱️ จำนวนข้อมูลทั้งหมด (รายการ)", f"{len(filtered_df):,}")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
+        if 'generator_output' in filtered_df.columns:
+            chart_data = filtered_df.set_index('created_at')['generator_output']
+            st.area_chart(chart_data, color="#3b82f6") 
+        else:
+            st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("📊 ตารางสรุปค่าสถิติประจำวัน (Daily Statistics)")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📊 ตารางสรุปค่าสถิติภาพรวม (Statistics)")
+        
+        numeric_cols = [col for col in filtered_df.select_dtypes(include=['float64', 'int64']).columns if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower())]
+        if numeric_cols:
+            summary_df = filtered_df[numeric_cols].agg(['mean', 'max', 'min']).T
+            summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+            summary_df.index = [str(col).upper().replace('_', ' ') for col in summary_df.index]
             
-            numeric_cols = [col for col in daily_df.select_dtypes(include=['float64', 'int64']).columns if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower())]
-            if numeric_cols:
-                summary_df = daily_df[numeric_cols].agg(['mean', 'max', 'min']).T
-                summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                summary_df.index = [str(col).upper().replace('_', ' ') for col in summary_df.index]
+            display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
+            st.dataframe(display_summary_df, use_container_width=True)
+            
+            # --- สร้างไฟล์ Excel (.xlsx) พร้อมดาวน์โหลด ---
+            export_df = summary_df.reset_index()
+            export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
+                workbook = writer.book
+                worksheet = writer.sheets['Summary']
                 
-                display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
-                st.dataframe(display_summary_df, use_container_width=True)
+                from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                thin_border = Border(left=Side(style='thin', color='E2E8F0'), right=Side(style='thin', color='E2E8F0'), top=Side(style='thin', color='E2E8F0'), bottom=Side(style='thin', color='E2E8F0'))
+                header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+                header_font = Font(name='Inter', size=11, bold=True, color='334155')
+                cell_font = Font(name='Inter', size=11, color='1E293B')
                 
-                # --- สร้างไฟล์ Excel (.xlsx) พร้อมดาวน์โหลด ---
-                export_df = summary_df.reset_index()
-                export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
-                    workbook = writer.book
-                    worksheet = writer.sheets['Summary']
+                for col_num in range(1, len(export_df.columns) + 1):
+                    cell = worksheet.cell(row=1, column=col_num)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
+                    cell.border = thin_border
                     
-                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-                    thin_border = Border(left=Side(style='thin', color='E2E8F0'), right=Side(style='thin', color='E2E8F0'), top=Side(style='thin', color='E2E8F0'), bottom=Side(style='thin', color='E2E8F0'))
-                    header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
-                    header_font = Font(name='Inter', size=11, bold=True, color='334155')
-                    cell_font = Font(name='Inter', size=11, color='1E293B')
-                    
+                for row_num in range(2, len(export_df) + 2):
                     for col_num in range(1, len(export_df.columns) + 1):
-                        cell = worksheet.cell(row=1, column=col_num)
-                        cell.font = header_font
-                        cell.fill = header_fill
-                        cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
+                        cell = worksheet.cell(row=row_num, column=col_num)
+                        cell.font = cell_font
                         cell.border = thin_border
-                        
-                    for row_num in range(2, len(export_df) + 2):
-                        for col_num in range(1, len(export_df.columns) + 1):
-                            cell = worksheet.cell(row=row_num, column=col_num)
-                            cell.font = cell_font
-                            cell.border = thin_border
-                            cell.alignment = Alignment(horizontal='left', vertical='center') if col_num == 1 else Alignment(horizontal='right', vertical='center')
-                            if col_num > 1 and isinstance(cell.value, (int, float)):
-                                cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
-                                
-                    for column in worksheet.columns:
-                        max_len_col = max(len(str(cell.value or '')) for cell in column)
-                        worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
-                        
-                excel_data = output.getvalue()
-                st.download_button(
-                    label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
-                    data=excel_data,
-                    file_name=f"turbine_summary_{selected_date}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+                        cell.alignment = Alignment(horizontal='left', vertical='center') if col_num == 1 else Alignment(horizontal='right', vertical='center')
+                        if col_num > 1 and isinstance(cell.value, (int, float)):
+                            cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
+                            
+                for column in worksheet.columns:
+                    max_len_col = max(len(str(cell.value or '')) for cell in column)
+                    worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
+                    
+            excel_data = output.getvalue()
+            st.download_button(
+                label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
+                data=excel_data,
+                file_name=f"turbine_summary_report.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
 
 # ---------------- แท็บที่ 3: อัปโหลดไฟล์ Excel ----------------
 with tab3:
