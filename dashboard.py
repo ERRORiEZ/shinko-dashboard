@@ -4,40 +4,7 @@ import time
 import io
 import urllib.request
 import json
-from datetime import datetime, date
-
-# ==========================================
-# ฟังก์ชันช่วยแปลง ค.ศ. เป็น พ.ศ. (ภาษาไทย)
-# ==========================================
-THAI_MONTHS = {
-    1: 'มกราคม', 2: 'กุมภาพันธ์', 3: 'มีนาคม', 4: 'เมษายน',
-    5: 'พฤษภาคม', 6: 'มิถุนายน', 7: 'กรกฎาคม', 8: 'สิงหาคม',
-    9: 'กันยายน', 10: 'ตุลาคม', 11: 'พฤศจิกายน', 12: 'ธันวาคม'
-}
-
-def to_thai_date_str(dt):
-    if pd.isna(dt): return 'N/A'
-    if hasattr(dt, 'strftime'):
-        d = dt.day
-        m = THAI_MONTHS.get(dt.month, '')
-        y = dt.year + 543
-        return f"{d} {m} {y}"
-    return str(dt)
-
-def to_thai_month_str(year_month_str):
-    try:
-        parts = year_month_str.split('-')
-        y = int(parts[0]) + 543
-        m = int(parts[1])
-        return f"{THAI_MONTHS.get(m, '')} {y}"
-    except:
-        return year_month_str
-
-def to_thai_year_str(year_str):
-    try:
-        return str(int(year_str) + 543)
-    except:
-        return year_str
+from datetime import datetime
 
 # ==========================================
 # 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
@@ -87,7 +54,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -105,19 +72,17 @@ def load_data():
             if 'created_at' in df.columns:
                 df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
                 df['date_only'] = df['created_at'].dt.date
-                df['year_month'] = df['created_at'].dt.strftime('%Y-%m')
-                df['year_only'] = df['created_at'].dt.strftime('%Y')
             
-            skip_cols = ['id', 'created_at', 'date_only', 'year_month', 'year_only']
+            skip_cols = ['id', 'created_at', 'date_only']
             for col in df.columns:
                 if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
                     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
             
             if 'created_at' in df.columns:
                 df = df.sort_values('created_at')
-        return df, None
+        return df
     except Exception as e:
-        return pd.DataFrame(), str(e)
+        return pd.DataFrame()
 
 @st.cache_data(ttl=2) 
 def load_logs_data():
@@ -138,12 +103,12 @@ def load_logs_data():
     except:
         return pd.DataFrame()
 
-df, db_error = load_data()
+df = load_data()
 df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar
+# 3. ส่วน Sidebar (ควบคุมและเลือกวันที่แบบ Dropdown ดั้งเดิมที่เสถียร)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -162,26 +127,13 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    st.subheader("📊 เลือกมุมมอง (สำหรับหน้า Summary)")
-    summary_mode = st.radio("โหมดสรุปผล", ["Latest (ล่าสุด)", "Daily (รายวัน)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
-    
-    selected_target = None
-    if summary_mode == "Daily (รายวัน)":
-        days = sorted(df['date_only'].dropna().unique(), reverse=True) if not df.empty and 'date_only' in df.columns else []
-        day_options = {d: to_thai_date_str(d) for d in days}
-        selected_key = st.selectbox("เลือกวันที่", days, format_func=lambda x: day_options.get(x, str(x))) if days else None
-        selected_target = selected_key
-    elif summary_mode == "Monthly (รายเดือน)":
-        months = sorted(df['year_month'].dropna().unique(), reverse=True) if not df.empty and 'year_month' in df.columns else []
-        month_options = {m: to_thai_month_str(m) for m in months}
-        selected_key = st.selectbox("เลือกเดือน", months, format_func=lambda x: month_options.get(x, str(x))) if months else None
-        selected_target = selected_key
-    elif summary_mode == "Yearly (รายปี)":
-        years = sorted(df['year_only'].dropna().unique(), reverse=True) if not df.empty and 'year_only' in df.columns else []
-        year_options = {y: to_thai_year_str(y) for y in years}
-        selected_key = st.selectbox("เลือกปี", years, format_func=lambda x: year_options.get(x, str(x))) if years else None
-        selected_target = selected_key
+    st.subheader("📅 เลือกวันที่ต้องการดูข้อมูล")
+    available_dates = []
+    if not df.empty and 'date_only' in df.columns:
+        available_dates = sorted(df['date_only'].dropna().unique(), reverse=True)
         
+    selected_date = st.selectbox("เลือกวันที่", available_dates) if available_dates else None
+    
     st.caption("Developed for Senior Project")
 
 # ==========================================
@@ -189,208 +141,190 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร (Real-time) ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
 with tab1:
-    if db_error:
-        st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล Supabase: {db_error}")
-    elif df.empty:
-        st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือตารางว่างเปล่า...")
-    else:
-        latest_data = df.iloc[-1]
-        latest_time = latest_data['created_at'].strftime('%H:%M:%S') if 'created_at' in df.columns else 'N/A'
-        latest_date_thai = to_thai_date_str(latest_data['created_at']) if 'created_at' in df.columns else 'N/A'
-        
-        st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ล่าสุด (ประจำวันที่ {latest_date_thai})")
-        if auto_refresh:
-            st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        exclude_cols = ['id', 'created_at', 'date_only', 'year_month', 'year_only']
-        all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
-        
-        def get_unit(col_name):
-            name = col_name.lower()
-            if 'time' in name or 'date' in name or 'stamp' in name:
-                return "min" if 'running' in name else ""
-            elif 'temp' in name: return "°C"
-            elif 'press' in name or 'pressure' in name: return "barG"
-            elif 'speed' in name or 'rpm' in name: return "RPM"
-            elif 'watt' in name or 'power' in name or 'generator' in name: return "kW"
-            elif 'rate' in name: return "%"
-            elif 'flow' in name: return "m³/h"
-            else: return ""
-        
-        def get_threshold_tags(title):
-            t = title.upper()
-            left_html, right_html = "", ""
-            def tag_l(label, val):
-                return f'<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"><span style="background-color: #38bdf8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">{label}</span><span style="color: #334155; font-size: 0.95rem; font-weight: 600;">{val}</span></div>'
-            def tag_r(label, val, bg_color):
-                return f'<div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;"><span style="background-color: {bg_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">{label}</span><span style="color: #334155; font-size: 0.85rem; font-weight: 600;">{val}</span></div>'
-
-            c_alarm, c_trip = "#f59e0b", "#ef4444"
-            if "GENERATOR" in t and "OUTPUT" in t: left_html = tag_l("RATED", "18,000 kW")
-            elif "SPEED" in t: left_html = tag_l("RATED", "1,500 RPM"); right_html = tag_r("TRIP(H)", "1,635 RPM", c_trip)
-            elif "INLET" in t and "PRESS" in t: left_html = tag_l("RATED", "40 barG"); right_html = tag_r("ALARM(L)", "34 barG", c_alarm) + tag_r("TRIP(L)", "30 barG", c_trip)
-            elif "EXH" in t and "PRESS" in t: left_html = tag_l("RATED", "1.5 barG"); right_html = tag_r("TRIP(H)", "3 barG", c_trip) + tag_r("ALARM(H)", "2.5 barG", c_alarm)
-            elif "LUB" in t and "PRESS" in t: right_html = tag_r("ALARM(L)", "0.7 barG", c_alarm) + tag_r("TRIP(L)", "0.5 barG", c_trip)
-            elif "CONT" in t and "PRESS" in t: right_html = tag_r("ALARM(L)", "7 barG", c_alarm)
-            elif "INLET" in t and "TEMP" in t: left_html = tag_l("RATED", "440 °C")
-            elif "LUB" in t and "OUTLET" in t and "TEMP" in t: right_html = tag_r("ALARM(H)", "50 °C", c_alarm)
-            elif "BEARING" in t and "TEMP" in t: right_html = tag_r("ALARM(H)", "75 °C", c_alarm)
-            return left_html, right_html
-
-        header_colors = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
-        num_columns = 2
-        for i in range(0, len(all_sensor_cols), num_columns):
-            cols = st.columns(num_columns)
-            for j in range(num_columns):
-                if i + j < len(all_sensor_cols):
-                    col_name = all_sensor_cols[i + j]
-                    val = latest_data[col_name]
-                    
-                    raw_name = str(col_name).upper().replace('_', ' ')
-                    if "START" in raw_name and "TIME" in raw_name: display_title = "THE LAST START UP DATE TIME"
-                    elif "START" in raw_name: display_title = "THE NUMBER OF STARTS"
-                    elif "TRIP" in raw_name: display_title = "THE NUMBER OF TRIPS"
-                    elif "ALARM" in raw_name: display_title = "THE NUMBER OF ALARMS"
-                    elif "RUNNING" in raw_name or "RUN" in raw_name: display_title = "TURBINE RUNNING TIME"
-                    else: display_title = raw_name
-
-                    unit = get_unit(col_name)
-                    if pd.isna(val) or val is None: display_val = "N/A"
-                    elif isinstance(val, (int, float)):
-                        display_val = f"{val:,.2f} {unit}".strip() if val % 1 != 0 else f"{val:,.0f} {unit}".strip()
-                    else: display_val = f"{val} {unit}".strip()
-                    
-                    bg_color = header_colors[(i + j) % len(header_colors)]
-                    left_tags, right_tags = get_threshold_tags(display_title)
-                    
-                    card_html = f'<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: 600; font-size: 0.95rem; text-align: center; letter-spacing: 0.5px;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #0f172a; font-size: 1.8rem; font-weight: 700;">{display_val}</div><div style="flex: 1;">{right_tags}</div></div></div>'
-                    cols[j].markdown(card_html, unsafe_allow_html=True)
-                    
-        st.markdown("<br><hr>", unsafe_allow_html=True)
-        st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
-        if not df_logs.empty:
-            latest_log = df_logs.iloc[0]
-            log_time = latest_log.get('created_at', 'N/A')
-            log_time_str = log_time.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(log_time) and hasattr(log_time, 'strftime') else str(log_time)
-            log_msg = latest_log.get('message', latest_log.get('event', 'Turbine event occurred.'))
-            log_cause = latest_log.get('cause', latest_log.get('description', ''))
-            
-            st.markdown(f"""
-            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); overflow: hidden; margin-top: 15px;">
-                <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: 600; font-size: 1.1rem; text-align: center;">⚠️ Event Summary</div>
-                <div style="padding: 25px; text-align: center; color: #1e293b;">
-                    <div style="font-size: 1.15rem; font-weight: 600; margin-bottom: 10px; color: #334155;">{log_time_str}</div>
-                    <div style="font-size: 1.05rem; margin-bottom: 8px; font-weight: 500;">{log_msg}</div>
-                    <div style="font-size: 1.05rem; color: #e11d48; font-weight: 700;">{log_cause}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
-
-# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary) ----------------
-with tab2:
     if df.empty:
-        st.warning("⏳ ไม่พบข้อมูลในระบบ...")
+        st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
     else:
-        if summary_mode == "Latest (ล่าสุด)":
-            filtered_df = df.tail(24)
-            mode_label = "ข้อมูลล่าสุด"
-        elif summary_mode == "Daily (รายวัน)" and selected_target:
-            filtered_df = df[df['date_only'] == selected_target]
-            mode_label = f"ประจำวันที่ {to_thai_date_str(selected_target)}"
-        elif summary_mode == "Monthly (รายเดือน)" and selected_target:
-            filtered_df = df[df['year_month'] == selected_target]
-            mode_label = f"ประจำเดือน {to_thai_month_str(selected_target)}"
-        elif summary_mode == "Yearly (รายปี)" and selected_target:
-            filtered_df = df[df['year_only'] == selected_target]
-            mode_label = f"ประจำปี {to_thai_year_str(selected_target)}"
-        else:
-            filtered_df = df.copy()
-            mode_label = "ภาพรวมทั้งหมด"
-
-        if filtered_df.empty:
-            st.warning(f"⏳ ไม่พบข้อมูลในช่วง {mode_label}")
-        else:
-            watt_max = filtered_df['watt_hour'].max() if 'watt_hour' in filtered_df.columns else 0
-            watt_min = filtered_df['watt_hour'].min() if 'watt_hour' in filtered_df.columns else 0
-            total_production = watt_max - watt_min
-            total_revenue = total_production * 1000 * electric_rate
+        daily_df = df[df['date_only'] == selected_date].copy() if selected_date else pd.DataFrame()
+        if not daily_df.empty:
+            display_df = daily_df.sort_values('created_at', ascending=False)
+            latest_data = display_df.iloc[0] 
+            latest_time = latest_data['created_at'].strftime('%H:%M:%S')
             
-            st.subheader(f"📌 สรุปผลการดำเนินงาน ({mode_label})")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("⚡ พลังงานรวมที่ผลิตได้ (MWh)", f"{total_production:,.3f}")
-            col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{total_revenue:,.2f}")
-            col3.metric("⏱️ จำนวนข้อมูลทั้งหมด (รายการ)", f"{len(filtered_df):,}")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
-            if 'generator_output' in filtered_df.columns:
-                chart_data = filtered_df.set_index('created_at')['generator_output']
-                st.area_chart(chart_data, color="#3b82f6") 
+            st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ประจำวันที่ {selected_date}")
+            if auto_refresh:
+                st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             else:
-                st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
-
+                st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("📊 ตารางสรุปค่าสถิติภาพรวม (Statistics)")
             
-            numeric_cols = [col for col in filtered_df.select_dtypes(include=['float64', 'int64']).columns if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower())]
-            if numeric_cols:
-                summary_df = filtered_df[numeric_cols].agg(['mean', 'max', 'min']).T
-                summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
-                summary_df.index = [str(col).upper().replace('_', ' ') for col in summary_df.index]
+            exclude_cols = ['id', 'created_at', 'date_only']
+            all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
+            
+            def get_unit(col_name):
+                name = col_name.lower()
+                if 'time' in name or 'date' in name or 'stamp' in name:
+                    return "min" if 'running' in name else ""
+                elif 'temp' in name: return "°C"
+                elif 'press' in name or 'pressure' in name: return "barG"
+                elif 'speed' in name or 'rpm' in name: return "RPM"
+                elif 'watt' in name or 'power' in name or 'generator' in name: return "kW"
+                elif 'rate' in name: return "%"
+                elif 'flow' in name: return "m³/h"
+                else: return ""
+            
+            def get_threshold_tags(title):
+                t = title.upper()
+                left_html, right_html = "", ""
+                def tag_l(label, val):
+                    return f'<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"><span style="background-color: #38bdf8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">{label}</span><span style="color: #334155; font-size: 0.95rem; font-weight: 600;">{val}</span></div>'
+                def tag_r(label, val, bg_color):
+                    return f'<div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;"><span style="background-color: {bg_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">{label}</span><span style="color: #334155; font-size: 0.85rem; font-weight: 600;">{val}</span></div>'
+
+                c_alarm, c_trip = "#f59e0b", "#ef4444"
+                if "GENERATOR" in t and "OUTPUT" in t: left_html = tag_l("RATED", "18,000 kW")
+                elif "SPEED" in t: left_html = tag_l("RATED", "1,500 RPM"); right_html = tag_r("TRIP(H)", "1,635 RPM", c_trip)
+                elif "INLET" in t and "PRESS" in t: left_html = tag_l("RATED", "40 barG"); right_html = tag_r("ALARM(L)", "34 barG", c_alarm) + tag_r("TRIP(L)", "30 barG", c_trip)
+                elif "EXH" in t and "PRESS" in t: left_html = tag_l("RATED", "1.5 barG"); right_html = tag_r("TRIP(H)", "3 barG", c_trip) + tag_r("ALARM(H)", "2.5 barG", c_alarm)
+                elif "LUB" in t and "PRESS" in t: right_html = tag_r("ALARM(L)", "0.7 barG", c_alarm) + tag_r("TRIP(L)", "0.5 barG", c_trip)
+                elif "CONT" in t and "PRESS" in t: right_html = tag_r("ALARM(L)", "7 barG", c_alarm)
+                elif "INLET" in t and "TEMP" in t: left_html = tag_l("RATED", "440 °C")
+                elif "LUB" in t and "OUTLET" in t and "TEMP" in t: right_html = tag_r("ALARM(H)", "50 °C", c_alarm)
+                elif "BEARING" in t and "TEMP" in t: right_html = tag_r("ALARM(H)", "75 °C", c_alarm)
+                return left_html, right_html
+
+            header_colors = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
+            num_columns = 2
+            for i in range(0, len(all_sensor_cols), num_columns):
+                cols = st.columns(num_columns)
+                for j in range(num_columns):
+                    if i + j < len(all_sensor_cols):
+                        col_name = all_sensor_cols[i + j]
+                        val = latest_data[col_name]
+                        
+                        raw_name = str(col_name).upper().replace('_', ' ')
+                        if "START" in raw_name and "TIME" in raw_name: display_title = "THE LAST START UP DATE TIME"
+                        elif "START" in raw_name: display_title = "THE NUMBER OF STARTS"
+                        elif "TRIP" in raw_name: display_title = "THE NUMBER OF TRIPS"
+                        elif "ALARM" in raw_name: display_title = "THE NUMBER OF ALARMS"
+                        elif "RUNNING" in raw_name or "RUN" in raw_name: display_title = "TURBINE RUNNING TIME"
+                        else: display_title = raw_name
+
+                        unit = get_unit(col_name)
+                        if pd.isna(val) or val is None: display_val = "N/A"
+                        elif isinstance(val, (int, float)):
+                            display_val = f"{val:,.2f} {unit}".strip() if val % 1 != 0 else f"{val:,.0f} {unit}".strip()
+                        else: display_val = f"{val} {unit}".strip()
+                        
+                        bg_color = header_colors[(i + j) % len(header_colors)]
+                        left_tags, right_tags = get_threshold_tags(display_title)
+                        
+                        card_html = f'<div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); overflow: hidden; margin-bottom: 20px;"><div style="background-color: {bg_color}; color: white; padding: 10px 15px; font-weight: 600; font-size: 0.95rem; text-align: center; letter-spacing: 0.5px;">{display_title}</div><div style="padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; min-height: 80px;"><div style="flex: 1;">{left_tags}</div><div style="flex: 1.5; text-align: center; color: #0f172a; font-size: 1.8rem; font-weight: 700;">{display_val}</div><div style="flex: 1;">{right_tags}</div></div></div>'
+                        cols[j].markdown(card_html, unsafe_allow_html=True)
+                        
+            st.markdown("<br><hr>", unsafe_allow_html=True)
+            st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
+            if not df_logs.empty:
+                latest_log = df_logs.iloc[0]
+                log_time = latest_log.get('created_at', 'N/A')
+                log_time_str = log_time.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(log_time) and hasattr(log_time, 'strftime') else str(log_time)
+                log_msg = latest_log.get('message', latest_log.get('event', 'Turbine event occurred.'))
+                log_cause = latest_log.get('cause', latest_log.get('description', ''))
                 
-                display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
-                st.dataframe(display_summary_df, use_container_width=True)
+                st.markdown(f"""
+                <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); overflow: hidden; margin-top: 15px;">
+                    <div style="background-color: #06b6d4; color: white; padding: 12px 20px; font-weight: 600; font-size: 1.1rem; text-align: center;">⚠️ Event Summary</div>
+                    <div style="padding: 25px; text-align: center; color: #1e293b;">
+                        <div style="font-size: 1.15rem; font-weight: 600; margin-bottom: 10px; color: #334155;">{log_time_str}</div>
+                        <div style="font-size: 1.05rem; margin-bottom: 8px; font-weight: 500;">{log_msg}</div>
+                        <div style="font-size: 1.05rem; color: #e11d48; font-weight: 700;">{log_cause}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
+
+# ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
+with tab2:
+    if df.empty or not selected_date:
+        st.warning("⏳ ไม่พบข้อมูลสำหรับวันที่เลือก...")
+    else:
+        filtered_df = df[df['date_only'] == selected_date]
+        watt_max = filtered_df['watt_hour'].max() if 'watt_hour' in filtered_df.columns else 0
+        watt_min = filtered_df['watt_hour'].min() if 'watt_hour' in filtered_df.columns else 0
+        total_production = watt_max - watt_min
+        total_revenue = total_production * 1000 * electric_rate
+        
+        st.subheader(f"📌 สรุปผลการดำเนินงานประจำวันที่ {selected_date}")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("⚡ พลังงานรวมที่ผลิตได้ (MWh)", f"{total_production:,.3f}")
+        col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{total_revenue:,.2f}")
+        col3.metric("⏱️ จำนวนข้อมูลทั้งหมด (รายการ)", f"{len(filtered_df):,}")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
+        if 'generator_output' in filtered_df.columns:
+            chart_data = filtered_df.set_index('created_at')['generator_output']
+            st.area_chart(chart_data, color="#3b82f6") 
+        else:
+            st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📊 ตารางสรุปค่าสถิติภาพรวม (Statistics)")
+        
+        numeric_cols = [col for col in filtered_df.select_dtypes(include=['float64', 'int64']).columns if col not in ['id'] and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower())]
+        if numeric_cols:
+            summary_df = filtered_df[numeric_cols].agg(['mean', 'max', 'min']).T
+            summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+            summary_df.index = [str(col).upper().replace('_', ' ') for col in summary_df.index]
+            
+            display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
+            st.dataframe(display_summary_df, use_container_width=True)
+            
+            export_df = summary_df.reset_index()
+            export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
+                workbook = writer.book
+                worksheet = writer.sheets['Summary']
                 
-                export_df = summary_df.reset_index()
-                export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                thin_border = Border(left=Side(style='thin', color='E2E8F0'), right=Side(style='thin', color='E2E8F0'), top=Side(style='thin', color='E2E8F0'), bottom=Side(style='thin', color='E2E8F0'))
+                header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+                header_font = Font(name='Inter', size=11, bold=True, color='334155')
+                cell_font = Font(name='Inter', size=11, color='1E293B')
                 
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
-                    workbook = writer.book
-                    worksheet = writer.sheets['Summary']
+                for col_num in range(1, len(export_df.columns) + 1):
+                    cell = worksheet.cell(row=1, column=col_num)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
+                    cell.border = thin_border
                     
-                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-                    thin_border = Border(left=Side(style='thin', color='E2E8F0'), right=Side(style='thin', color='E2E8F0'), top=Side(style='thin', color='E2E8F0'), bottom=Side(style='thin', color='E2E8F0'))
-                    header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
-                    header_font = Font(name='Inter', size=11, bold=True, color='334155')
-                    cell_font = Font(name='Inter', size=11, color='1E293B')
-                    
+                for row_num in range(2, len(export_df) + 2):
                     for col_num in range(1, len(export_df.columns) + 1):
-                        cell = worksheet.cell(row=1, column=col_num)
-                        cell.font = header_font
-                        cell.fill = header_fill
-                        cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
+                        cell = worksheet.cell(row=row_num, column=col_num)
+                        cell.font = cell_font
                         cell.border = thin_border
-                        
-                    for row_num in range(2, len(export_df) + 2):
-                        for col_num in range(1, len(export_df.columns) + 1):
-                            cell = worksheet.cell(row=row_num, column=col_num)
-                            cell.font = cell_font
-                            cell.border = thin_border
-                            cell.alignment = Alignment(horizontal='left', vertical='center') if col_num == 1 else Alignment(horizontal='right', vertical='center')
-                            if col_num > 1 and isinstance(cell.value, (int, float)):
-                                cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
-                                
-                    for column in worksheet.columns:
-                        max_len_col = max(len(str(cell.value or '')) for cell in column)
-                        worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
-                        
-                excel_data = output.getvalue()
-                st.download_button(
-                    label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
-                    data=excel_data,
-                    file_name=f"turbine_summary_{summary_mode.split()[0].lower()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+                        cell.alignment = Alignment(horizontal='left', vertical='center') if col_num == 1 else Alignment(horizontal='right', vertical='center')
+                        if col_num > 1 and isinstance(cell.value, (int, float)):
+                            cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
+                            
+                for column in worksheet.columns:
+                    max_len_col = max(len(str(cell.value or '')) for cell in column)
+                    worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
+                    
+            excel_data = output.getvalue()
+            st.download_button(
+                label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
+                data=excel_data,
+                file_name=f"turbine_summary_report_{selected_date}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
 
 # ---------------- แท็บที่ 3: อัปโหลดไฟล์ Excel ----------------
 with tab3:
