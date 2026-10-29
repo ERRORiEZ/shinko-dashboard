@@ -87,7 +87,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -143,7 +143,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar
+# 3. ส่วน Sidebar (รองรับรูปแบบไทย)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -300,7 +300,7 @@ with tab2:
     else:
         if summary_mode == "Latest (ล่าสุด)":
             filtered_df = df.tail(24)
-            mode_label = "ข้อมูลล่าสุด"
+            mode_label = "ข้อมูลล่าสุด (24 รายการล่าสุด)"
         elif summary_mode == "Daily (รายวัน)" and selected_target:
             filtered_df = df[df['date_only'] == selected_target]
             mode_label = f"ประจำวันที่ {to_thai_date_str(selected_target)}"
