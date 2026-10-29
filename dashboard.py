@@ -4,7 +4,7 @@ import time
 import io
 import urllib.request
 import json
-from datetime import datetime, date, timedelta
+from datetime import datetime
 
 # ==========================================
 # 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
@@ -18,6 +18,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
     html, body, .stMarkdown, p, span, label {
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
@@ -52,7 +54,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -67,19 +69,11 @@ def load_data():
         
         df = pd.DataFrame(data)
         if not df.empty:
-            time_col = None
-            for col in ['created_at', 'timestamp', 'date_time', 'time']:
-                if col in df.columns:
-                    time_col = col
-                    break
-            
-            if time_col:
-                df['created_at'] = pd.to_datetime(df[time_col], errors='coerce')
-                if df['created_at'].dt.tz is not None:
-                    df['created_at'] = df['created_at'].dt.tz_convert('Asia/Bangkok').dt.tz_localize(None)
+            if 'created_at' in df.columns:
+                df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
                 df['date_only'] = df['created_at'].dt.date
             
-            skip_cols = ['id', 'created_at', 'date_only', time_col]
+            skip_cols = ['id', 'created_at', 'date_only']
             for col in df.columns:
                 if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
                     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
@@ -103,9 +97,7 @@ def load_logs_data():
         
         df_logs = pd.DataFrame(data)
         if not df_logs.empty and 'created_at' in df_logs.columns:
-            df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce')
-            if df_logs['created_at'].dt.tz is not None:
-                df_logs['created_at'] = df_logs['created_at'].dt.tz_convert('Asia/Bangkok').dt.tz_localize(None)
+            df_logs['created_at'] = pd.to_datetime(df_logs['created_at']).dt.tz_convert('Asia/Bangkok')
             df_logs = df_logs.sort_values('created_at', ascending=False)
         return df_logs
     except:
@@ -116,7 +108,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (ควบคุมระบบและปฏิทินเลือกวัน)
+# 3. ส่วน Sidebar (ควบคุมและเลือกวันที่แบบ Dropdown ดั้งเดิมที่เสถียร)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -135,27 +127,12 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    st.subheader("📅 เลือกช่วงเวลาข้อมูล")
-    
-    # ค้นหาวันที่ต่ำที่สุดและสูงสุดจากฐานข้อมูลจริง เพื่อให้ปฏิทินครอบคลุมข้อมูลทั้งหมด
+    st.subheader("📅 เลือกวันที่ต้องการดูข้อมูล")
+    available_dates = []
     if not df.empty and 'date_only' in df.columns:
-        valid_dates = [d for d in df['date_only'].unique() if pd.notna(d)]
-        if valid_dates:
-            min_d = min(valid_dates)
-            max_d = max(valid_dates)
-        else:
-            min_d = date.today() - timedelta(days=365)
-            max_d = date.today()
-    else:
-        min_d = date.today() - timedelta(days=365)
-        max_d = date.today()
-            
-    selected_dates = st.date_input(
-        "เลือกวันที่ต้องการวิเคราะห์",
-        value=(min_d, max_d),
-        min_value=min_d,
-        max_value=max_d
-    )
+        available_dates = sorted(df['date_only'].dropna().unique(), reverse=True)
+        
+    selected_date = st.selectbox("เลือกวันที่", available_dates) if available_dates else None
     
     st.caption("Developed for Senior Project")
 
@@ -164,48 +141,25 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# จัดการกรองข้อมูลตามวันที่ผู้ใช้เลือกจากปฏิทิน (ถ้าเลือกวันเดียวหรือช่วงเวลา)
-if not df.empty and 'date_only' in df.columns:
-    if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
-        start_date, end_date = selected_dates
-        filtered_df = df[(df['date_only'] >= start_date) & (df['date_only'] <= end_date)]
-        latest_date_tab1 = end_date
-    else:
-        start_date = end_date = selected_dates
-        filtered_df = df[df['date_only'] == start_date]
-        latest_date_tab1 = start_date
-else:
-    filtered_df = df.copy() if not df.empty else pd.DataFrame()
-    latest_date_tab1 = date.today()
-
-# ถ้าช่วงที่เลือกไม่มีข้อมูล ให้ดึงวันล่าสุดที่มีในฐานข้อมูลมาแสดงแทนทันที เพื่อกันหน้าจอว่าง
-if filtered_df.empty and not df.empty:
-    filtered_df = df.copy()
-    latest_date_tab1 = df['date_only'].max()
-
 # ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
 with tab1:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
     else:
-        daily_df = df[df['date_only'] == latest_date_tab1].copy() if latest_date_tab1 is not None else pd.DataFrame()
-        if daily_df.empty and not df.empty:
-            latest_date_tab1 = df['date_only'].max()
-            daily_df = df[df['date_only'] == latest_date_tab1].copy()
-            
+        daily_df = df[df['date_only'] == selected_date].copy() if selected_date else pd.DataFrame()
         if not daily_df.empty:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
-            latest_time = latest_data['created_at'].strftime('%H:%M:%S') if pd.notna(latest_data['created_at']) else 'N/A'
+            latest_time = latest_data['created_at'].strftime('%H:%M:%S')
             
-            st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ประจำวันที่ {latest_date_tab1}")
+            st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ประจำวันที่ {selected_date}")
             if auto_refresh:
                 st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             else:
                 st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            exclude_cols = ['id', 'created_at', 'date_only', 'timestamp']
+            exclude_cols = ['id', 'created_at', 'date_only']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
             def get_unit(col_name):
@@ -290,20 +244,19 @@ with tab1:
                 """, unsafe_allow_html=True)
             else:
                 st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
-        else:
-            st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
 
 # ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
 with tab2:
-    if filtered_df.empty:
-        st.warning("⏳ ไม่พบข้อมูลในช่วงเวลาที่เลือก...")
+    if df.empty or not selected_date:
+        st.warning("⏳ ไม่พบข้อมูลสำหรับวันที่เลือก...")
     else:
+        filtered_df = df[df['date_only'] == selected_date]
         watt_max = filtered_df['watt_hour'].max() if 'watt_hour' in filtered_df.columns else 0
         watt_min = filtered_df['watt_hour'].min() if 'watt_hour' in filtered_df.columns else 0
         total_production = watt_max - watt_min
         total_revenue = total_production * 1000 * electric_rate
         
-        st.subheader(f"📌 สรุปผลการดำเนินงานตามช่วงเวลาที่เลือก")
+        st.subheader(f"📌 สรุปผลการดำเนินงานประจำวันที่ {selected_date}")
         col1, col2, col3 = st.columns(3)
         col1.metric("⚡ พลังงานรวมที่ผลิตได้ (MWh)", f"{total_production:,.3f}")
         col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{total_revenue:,.2f}")
@@ -368,7 +321,7 @@ with tab2:
             st.download_button(
                 label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
                 data=excel_data,
-                file_name=f"turbine_summary_report.xlsx",
+                file_name=f"turbine_summary_report_{selected_date}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
