@@ -18,9 +18,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    html, body, [class*="css"], .stMarkdown, p, span, div {
+    /* กำหนดฟอนต์เฉพาะแท็กข้อความและหัวข้อ เพื่อไม่ให้ไปทับเลย์เอาต์ปุ่มอัปโหลดของ Streamlit */
+    html, body, .stMarkdown, p, span, label, input {
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
     
@@ -69,7 +68,6 @@ def load_data():
         
         df = pd.DataFrame(data)
         if not df.empty:
-            # ค้นหาคอลัมน์วันที่และเวลา
             time_col = None
             for col in ['created_at', 'timestamp', 'date_time', 'time']:
                 if col in df.columns:
@@ -78,7 +76,6 @@ def load_data():
             
             if time_col:
                 df['created_at'] = pd.to_datetime(df[time_col], errors='coerce')
-                # ตัด Timezone ออกเพื่อป้องกัน Error เวลาเทียบวันที่
                 if df['created_at'].dt.tz is not None:
                     df['created_at'] = df['created_at'].dt.tz_convert('Asia/Bangkok').dt.tz_localize(None)
                 df['date_only'] = df['created_at'].dt.date
@@ -120,7 +117,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (ระบบปฏิทินเลือกวัน)
+# 3. ส่วน Sidebar (ควบคุมและปฏิทินเลือกวัน)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -186,7 +183,6 @@ with tab1:
     else:
         daily_df = df[df['date_only'] == latest_date_tab1].copy() if latest_date_tab1 is not None else pd.DataFrame()
         if daily_df.empty and not df.empty:
-            # ถ้าวันที่เลือกไม่มีข้อมูล ให้ดึงข้อมูลวันล่าสุดที่มีในระบบมาแสดงแทนทันที
             latest_date_tab1 = df['date_only'].max()
             daily_df = df[df['date_only'] == latest_date_tab1].copy()
             
@@ -359,7 +355,8 @@ with tab2:
                             cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
                             
                 for column in worksheet.columns:
-                    max_len_col = max(len(str(cell.value or '')) for column in worksheet.columns for cell in column) # ป้องกัน bug ความกว้างคอลัมน์
+                    max_len_col = max(len(str(cell.value or '')) for cell in column)
+                    worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
                     
             excel_data = output.getvalue()
             st.download_button(
