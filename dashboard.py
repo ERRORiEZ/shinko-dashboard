@@ -46,8 +46,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚙️ Turbine Monitoring & Revenue Dashboard")
-st.markdown("ระบบมอนิเตอร์ประสิทธิภาพและสรุปรายได้กังหันไฟฟ้าแบบเรียลไทม์")
+st.title("⚙️ ELECTRIC TURBINE")
+st.markdown("ระบบมอนิเตอร์และสรุปข้อมูล")
 st.markdown("---")
 
 # ==========================================
@@ -113,15 +113,15 @@ auto_refresh = False
 # 3. ส่วน Sidebar (ตัวเลือกสำหรับหน้า Summary เท่านั้น)
 # ==========================================
 with st.sidebar:
-    st.header("⚡ ควบคุมระบบ Real-time")
-    auto_refresh = st.toggle("เปิดโหมด Auto-Refresh (ทุก 60 วิ)", value=False)
+    st.header("⚡ ควบคุมระบบ")
+    auto_refresh = st.toggle("เปิดระบบดึงข้อมูลอัตโนมัติ (ทุกๆ 60 วินาที)", value=False)
     
     if auto_refresh:
         st.success("🟢 ระบบกำลังดึงข้อมูลอัตโนมัติ")
     else:
         st.info("⚪ ระบบหยุดดึงข้อมูลอัตโนมัติ")
         
-    if st.button("🔄 ดึงข้อมูลทันที (Manual)", use_container_width=True):
+    if st.button("🔄 ดึงข้อมูลระบบทันที (Manual)", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
         
@@ -129,8 +129,8 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    st.subheader("📊 เลือกมุมมอง (สำหรับหน้า Summary)")
-    summary_mode = st.radio("โหมดสรุปผล", ["Latest (ล่าสุด)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
+    st.subheader("📊 เลือกข้อมูลสรุปผล")
+    summary_mode = st.radio("สรุปผล", ["Latest (ล่าสุด)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
     
     selected_target = None
     if summary_mode == "Monthly (รายเดือน)":
