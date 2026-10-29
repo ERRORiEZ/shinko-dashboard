@@ -51,10 +51,10 @@ st.markdown("ระบบมอนิเตอร์ประสิทธิภ�
 st.markdown("---")
 
 # ==========================================
-# 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
+# 2. ตั้งค่าการเชื่อมต่อ Supabase (พร้อมแสดง Error เชิงลึก)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -82,9 +82,9 @@ def load_data():
             
             if 'created_at' in df.columns:
                 df = df.sort_values('created_at')
-        return df
+        return df, None
     except Exception as e:
-        return pd.DataFrame()
+        return pd.DataFrame(), str(e)
 
 @st.cache_data(ttl=2) 
 def load_logs_data():
@@ -105,7 +105,7 @@ def load_logs_data():
     except:
         return pd.DataFrame()
 
-df = load_data()
+df, db_error = load_data()
 df_logs = load_logs_data()
 auto_refresh = False
 
@@ -147,10 +147,12 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร (Real-time สดๆ ไม่เกี่ยวกับโหมดสรุป) ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
 with tab1:
-    if df.empty:
-        st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
+    if db_error:
+        st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล Supabase: {db_error}")
+    elif df.empty:
+        st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือตารางว่างเปล่า...")
     else:
         latest_data = df.iloc[-1]
         latest_time = latest_data['created_at'].strftime('%H:%M:%S') if 'created_at' in df.columns else 'N/A'
@@ -249,7 +251,7 @@ with tab1:
         else:
             st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary - ควบคุมด้วย Latest / Monthly / Yearly) ----------------
+# ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
 with tab2:
     if df.empty:
         st.warning("⏳ ไม่พบข้อมูลในระบบ...")
