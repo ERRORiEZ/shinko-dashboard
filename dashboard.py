@@ -54,7 +54,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -110,7 +110,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (แยกโหมด Latest, Monthly, Yearly)
+# 3. ส่วน Sidebar (ตัวเลือกสำหรับหน้า Summary เท่านั้น)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -129,14 +129,14 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    st.subheader("📊 เลือกมุมมองข้อมูล")
-    view_mode = st.radio("โหมดการแสดงผล", ["Latest (ล่าสุด)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
+    st.subheader("📊 เลือกมุมมอง (สำหรับหน้า Summary)")
+    summary_mode = st.radio("โหมดสรุปผล", ["Latest (ล่าสุด)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
     
     selected_target = None
-    if view_mode == "Monthly (รายเดือน)":
+    if summary_mode == "Monthly (รายเดือน)":
         months = sorted(df['year_month'].dropna().unique(), reverse=True) if not df.empty and 'year_month' in df.columns else []
         selected_target = st.selectbox("เลือกเดือน", months) if months else None
-    elif view_mode == "Yearly (รายปี)":
+    elif summary_mode == "Yearly (รายปี)":
         years = sorted(df['year_only'].dropna().unique(), reverse=True) if not df.empty and 'year_only' in df.columns else []
         selected_target = st.selectbox("เลือกปี", years) if years else None
         
@@ -147,12 +147,11 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร (Real-time สดๆ ไม่เกี่ยวกับโหมดสรุป) ----------------
 with tab1:
     if df.empty:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
     else:
-        # แท็บ Live Status จะแสดงค่าล่าสุดเสมอเพื่อให้เห็นสถานะปัจจุบันของเครื่องจักร
         latest_data = df.iloc[-1]
         latest_time = latest_data['created_at'].strftime('%H:%M:%S') if 'created_at' in df.columns else 'N/A'
         latest_date_str = latest_data['created_at'].strftime('%Y-%m-%d') if 'created_at' in df.columns else 'N/A'
@@ -250,19 +249,18 @@ with tab1:
         else:
             st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-# ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
+# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary - ควบคุมด้วย Latest / Monthly / Yearly) ----------------
 with tab2:
     if df.empty:
         st.warning("⏳ ไม่พบข้อมูลในระบบ...")
     else:
-        # กรองข้อมูลตามโหมดที่เลือกใน Sidebar
-        if view_mode == "Latest (ล่าสุด)":
-            filtered_df = df.tail(24) # แสดง 24 ข้อมูลล่าสุด
+        if summary_mode == "Latest (ล่าสุด)":
+            filtered_df = df.tail(24)
             mode_label = "ข้อมูลล่าสุด (24 รายการล่าสุด)"
-        elif view_mode == "Monthly (รายเดือน)" and selected_target:
+        elif summary_mode == "Monthly (รายเดือน)" and selected_target:
             filtered_df = df[df['year_month'] == selected_target]
             mode_label = f"ประจำเดือน {selected_target}"
-        elif view_mode == "Yearly (รายปี)" and selected_target:
+        elif summary_mode == "Yearly (รายปี)" and selected_target:
             filtered_df = df[df['year_only'] == selected_target]
             mode_label = f"ประจำปี {selected_target}"
         else:
@@ -342,7 +340,7 @@ with tab2:
                 st.download_button(
                     label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
                     data=excel_data,
-                    file_name=f"turbine_summary_{view_mode.split()[0].lower()}.xlsx",
+                    file_name=f"turbine_summary_{summary_mode.split()[0].lower()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
