@@ -7,7 +7,7 @@ import json
 from datetime import datetime, date
 
 # ==========================================
-# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
+# 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS - แก้ไขปุ่มอัปโหลดโดยเฉพาะ)
 # ==========================================
 st.set_page_config(
     page_title="Turbine Monitoring System", 
@@ -18,8 +18,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* กำหนดฟอนต์เฉพาะแท็กข้อความและหัวข้อ เพื่อไม่ให้ไปทับเลย์เอาต์ปุ่มอัปโหลดของ Streamlit */
-    html, body, .stMarkdown, p, span, label, input {
+    /* ตั้งค่าฟอนต์เฉพาะตัวหนังสือทั่วไป */
+    html, body, .stMarkdown, p, span, label {
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     }
     
@@ -32,6 +32,17 @@ st.markdown("""
         display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
+    }
+    
+    /* รีเซ็ตสไตล์ของปุ่มอัปโหลดไม่ให้ตัวหนังสือซ้อนทับกัน */
+    [data-testid="stFileUploader"] section {
+        font-family: 'Inter', sans-serif !important;
+    }
+    [data-testid="stFileUploader"] button {
+        position: relative !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
     
     h1, h2, h3 { 
@@ -53,7 +64,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -162,7 +173,6 @@ with st.sidebar:
 # ==========================================
 tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# จัดการกรองข้อมูลตามวันที่ผู้ใช้เลือกจากปฏิทิน
 if not df.empty and 'date_only' in df.columns:
     if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
         start_date, end_date = selected_dates
@@ -322,7 +332,6 @@ with tab2:
             display_summary_df = summary_df.map(lambda x: f"{x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else x)
             st.dataframe(display_summary_df, use_container_width=True)
             
-            # --- สร้างไฟล์ Excel (.xlsx) พร้อมดาวน์โหลด ---
             export_df = summary_df.reset_index()
             export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
             
