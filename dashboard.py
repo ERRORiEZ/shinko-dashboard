@@ -54,7 +54,7 @@ st.markdown("---")
 # 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
 
 @st.cache_data(ttl=2) 
 def load_data():
@@ -69,11 +69,21 @@ def load_data():
         
         df = pd.DataFrame(data)
         if not df.empty:
-            if 'created_at' in df.columns:
-                df['created_at'] = pd.to_datetime(df['created_at']).dt.tz_convert('Asia/Bangkok')
+            # ค้นหาคอลัมน์วันที่และเวลา
+            time_col = None
+            for col in ['created_at', 'timestamp', 'date_time', 'time']:
+                if col in df.columns:
+                    time_col = col
+                    break
+            
+            if time_col:
+                df['created_at'] = pd.to_datetime(df[time_col], errors='coerce')
+                # ตัด Timezone ออกเพื่อป้องกัน Error เวลาเทียบวันที่
+                if df['created_at'].dt.tz is not None:
+                    df['created_at'] = df['created_at'].dt.tz_convert('Asia/Bangkok').dt.tz_localize(None)
                 df['date_only'] = df['created_at'].dt.date
             
-            skip_cols = ['id', 'created_at', 'date_only']
+            skip_cols = ['id', 'created_at', 'date_only', time_col]
             for col in df.columns:
                 if col not in skip_cols and not ('time' in col.lower() or 'date' in col.lower() or 'stamp' in col.lower()):
                     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
@@ -97,7 +107,9 @@ def load_logs_data():
         
         df_logs = pd.DataFrame(data)
         if not df_logs.empty and 'created_at' in df_logs.columns:
-            df_logs['created_at'] = pd.to_datetime(df_logs['created_at']).dt.tz_convert('Asia/Bangkok')
+            df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce')
+            if df_logs['created_at'].dt.tz is not None:
+                df_logs['created_at'] = df_logs['created_at'].dt.tz_convert('Asia/Bangkok').dt.tz_localize(None)
             df_logs = df_logs.sort_values('created_at', ascending=False)
         return df_logs
     except:
@@ -108,7 +120,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (เปลี่ยนเป็นระบบปฏิทินเลือกวัน)
+# 3. ส่วน Sidebar (ระบบปฏิทินเลือกวัน)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -127,14 +139,16 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    # --- เพิ่มฟังก์ชันปฏิทินเลือกวันที่ (Date Picker) ---
     st.subheader("📅 เลือกช่วงเวลาข้อมูล")
     
     if not df.empty and 'date_only' in df.columns:
-        min_d = min(df['date_only'])
-        max_d = max(df['date_only'])
-        
-        # ใช้ st.date_input แบบเลือกช่วง (Tuple: start_date, end_date) หรือเลือกวันเดียวก็ได้
+        valid_dates = [d for d in df['date_only'].unique() if pd.notna(d)]
+        if valid_dates:
+            min_d = min(valid_dates)
+            max_d = max(valid_dates)
+        else:
+            min_d = max_d = date.today()
+            
         selected_dates = st.date_input(
             "เลือกวันที่ต้องการวิเคราะห์",
             value=(min_d, max_d),
@@ -156,7 +170,6 @@ if not df.empty and 'date_only' in df.columns:
     if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
         start_date, end_date = selected_dates
         filtered_df = df[(df['date_only'] >= start_date) & (df['date_only'] <= end_date)]
-        # สำหรับแท็บ Live Status ให้ใช้วันล่าสุดในเกณฑ์ที่เลือก
         latest_date_tab1 = end_date
     else:
         start_date = end_date = selected_dates
@@ -172,10 +185,15 @@ with tab1:
         st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
     else:
         daily_df = df[df['date_only'] == latest_date_tab1].copy() if latest_date_tab1 is not None else pd.DataFrame()
+        if daily_df.empty and not df.empty:
+            # ถ้าวันที่เลือกไม่มีข้อมูล ให้ดึงข้อมูลวันล่าสุดที่มีในระบบมาแสดงแทนทันที
+            latest_date_tab1 = df['date_only'].max()
+            daily_df = df[df['date_only'] == latest_date_tab1].copy()
+            
         if not daily_df.empty:
             display_df = daily_df.sort_values('created_at', ascending=False)
             latest_data = display_df.iloc[0] 
-            latest_time = latest_data['created_at'].strftime('%H:%M:%S')
+            latest_time = latest_data['created_at'].strftime('%H:%M:%S') if pd.notna(latest_data['created_at']) else 'N/A'
             
             st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ประจำวันที่ {latest_date_tab1}")
             if auto_refresh:
@@ -184,7 +202,7 @@ with tab1:
                 st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            exclude_cols = ['id', 'created_at', 'date_only']
+            exclude_cols = ['id', 'created_at', 'date_only', 'timestamp']
             all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
             
             def get_unit(col_name):
@@ -252,7 +270,7 @@ with tab1:
             st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
             if not df_logs.empty:
                 latest_log = df_logs.iloc[0]
-                log_time = latest_log.get('created_at', latest_log.get('timestamp', 'N/A'))
+                log_time = latest_log.get('created_at', 'N/A')
                 log_time_str = log_time.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(log_time) and hasattr(log_time, 'strftime') else str(log_time)
                 log_msg = latest_log.get('message', latest_log.get('event', 'Turbine event occurred.'))
                 log_cause = latest_log.get('cause', latest_log.get('description', ''))
@@ -269,6 +287,8 @@ with tab1:
                 """, unsafe_allow_html=True)
             else:
                 st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
+        else:
+            st.warning("⏳ ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล...")
 
 # ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
 with tab2:
@@ -339,8 +359,7 @@ with tab2:
                             cell.number_format = '#,##0' if str(cell.value).endswith('.0') or isinstance(cell.value, int) else '#,##0.00'
                             
                 for column in worksheet.columns:
-                    max_len_col = max(len(str(cell.value or '')) for cell in column)
-                    worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
+                    max_len_col = max(len(str(cell.value or '')) for column in worksheet.columns for cell in column) # ป้องกัน bug ความกว้างคอลัมน์
                     
             excel_data = output.getvalue()
             st.download_button(
