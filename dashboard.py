@@ -7,6 +7,39 @@ import json
 from datetime import datetime, date
 
 # ==========================================
+# ฟังก์ชันช่วยแปลง ค.ศ. เป็น พ.ศ. (ภาษาไทย)
+# ==========================================
+THAI_MONTHS = {
+    1: 'มกราคม', 2: 'กุมภาพันธ์', 3: 'มีนาคม', 4: 'เมษายน',
+    5: 'พฤษภาคม', 6: 'มิถุนายน', 7: 'กรกฎาคม', 8: 'สิงหาคม',
+    9: 'กันยายน', 10: 'ตุลาคม', 11: 'พฤศจิกายน', 12: 'ธันวาคม'
+}
+
+def to_thai_date_str(dt):
+    if pd.isna(dt): return 'N/A'
+    if hasattr(dt, 'strftime'):
+        d = dt.day
+        m = THAI_MONTHS.get(dt.month, '')
+        y = dt.year + 543
+        return f"{d} {m} {y}"
+    return str(dt)
+
+def to_thai_month_str(year_month_str):
+    try:
+        parts = year_month_str.split('-')
+        y = int(parts[0]) + 543
+        m = int(parts[1])
+        return f"{THAI_MONTHS.get(m, '')} {y}"
+    except:
+        return year_month_str
+
+def to_thai_year_str(year_str):
+    try:
+        return str(int(year_str) + 543)
+    except:
+        return year_str
+
+# ==========================================
 # 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
 # ==========================================
 st.set_page_config(
@@ -110,7 +143,7 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (เพิ่ม Daily, Monthly, Yearly, Latest)
+# 3. ส่วน Sidebar (รองรับรูปแบบไทย)
 # ==========================================
 with st.sidebar:
     st.header("⚡ ควบคุมระบบ Real-time")
@@ -135,13 +168,19 @@ with st.sidebar:
     selected_target = None
     if summary_mode == "Daily (รายวัน)":
         days = sorted(df['date_only'].dropna().unique(), reverse=True) if not df.empty and 'date_only' in df.columns else []
-        selected_target = st.selectbox("เลือกวันที่", days) if days else None
+        day_options = {d: to_thai_date_str(d) for d in days}
+        selected_key = st.selectbox("เลือกวันที่", days, format_func=lambda x: day_options.get(x, str(x))) if days else None
+        selected_target = selected_key
     elif summary_mode == "Monthly (รายเดือน)":
         months = sorted(df['year_month'].dropna().unique(), reverse=True) if not df.empty and 'year_month' in df.columns else []
-        selected_target = st.selectbox("เลือกเดือน", months) if months else None
+        month_options = {m: to_thai_month_str(m) for m in months}
+        selected_key = st.selectbox("เลือกเดือน", months, format_func=lambda x: month_options.get(x, str(x))) if months else None
+        selected_target = selected_key
     elif summary_mode == "Yearly (รายปี)":
         years = sorted(df['year_only'].dropna().unique(), reverse=True) if not df.empty and 'year_only' in df.columns else []
-        selected_target = st.selectbox("เลือกปี", years) if years else None
+        year_options = {y: to_thai_year_str(y) for y in years}
+        selected_key = st.selectbox("เลือกปี", years, format_func=lambda x: year_options.get(x, str(x))) if years else None
+        selected_target = selected_key
         
     st.caption("Developed for Senior Project")
 
@@ -159,9 +198,9 @@ with tab1:
     else:
         latest_data = df.iloc[-1]
         latest_time = latest_data['created_at'].strftime('%H:%M:%S') if 'created_at' in df.columns else 'N/A'
-        latest_date_str = latest_data['created_at'].strftime('%Y-%m-%d') if 'created_at' in df.columns else 'N/A'
+        latest_date_thai = to_thai_date_str(latest_data['created_at']) if 'created_at' in df.columns else 'N/A'
         
-        st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ล่าสุด (ประจำวันที่ {latest_date_str})")
+        st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ล่าสุด (ประจำวันที่ {latest_date_thai})")
         if auto_refresh:
             st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         else:
@@ -254,7 +293,7 @@ with tab1:
         else:
             st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary - รองรับ Daily, Monthly, Yearly) ----------------
+# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary) ----------------
 with tab2:
     if df.empty:
         st.warning("⏳ ไม่พบข้อมูลในระบบ...")
@@ -264,13 +303,13 @@ with tab2:
             mode_label = "ข้อมูลล่าสุด (24 รายการล่าสุด)"
         elif summary_mode == "Daily (รายวัน)" and selected_target:
             filtered_df = df[df['date_only'] == selected_target]
-            mode_label = f"ประจำวันที่ {selected_target}"
+            mode_label = f"ประจำวันที่ {to_thai_date_str(selected_target)}"
         elif summary_mode == "Monthly (รายเดือน)" and selected_target:
             filtered_df = df[df['year_month'] == selected_target]
-            mode_label = f"ประจำเดือน {selected_target}"
+            mode_label = f"ประจำเดือน {to_thai_month_str(selected_target)}"
         elif summary_mode == "Yearly (รายปี)" and selected_target:
             filtered_df = df[df['year_only'] == selected_target]
-            mode_label = f"ประจำปี {selected_target}"
+            mode_label = f"ประจำปี {to_thai_year_str(selected_target)}"
         else:
             filtered_df = df.copy()
             mode_label = "ภาพรวมทั้งหมด"
