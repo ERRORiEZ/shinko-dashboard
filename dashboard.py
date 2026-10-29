@@ -4,7 +4,7 @@ import time
 import io
 import urllib.request
 import json
-from datetime import datetime
+from datetime import datetime, date
 
 # ==========================================
 # 1. ตั้งค่าหน้าเว็บและสไตล์ (CSS)
@@ -46,12 +46,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚙️ ELECTRIC TURBINE")
-st.markdown("ระบบมอนิเตอร์และสรุปข้อมูล")
+st.title("⚙️ Turbine Monitoring & Revenue Dashboard")
+st.markdown("ระบบมอนิเตอร์ประสิทธิภาพและสรุปรายได้กังหันไฟฟ้าแบบเรียลไทม์")
 st.markdown("---")
 
 # ==========================================
-# 2. ตั้งค่าการเชื่อมต่อ Supabase (พร้อมแสดง Error เชิงลึก)
+# 2. ตั้งค่าการเชื่อมต่อ Supabase (Direct REST API)
 # ==========================================
 SUPABASE_URL = "https://egjpkwgyrhsmajkumnyc.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnanBrd2d5cmhzbWFqa3VtbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjkzOTYsImV4cCI6MjEwODEwNTM5Nn0.klAeK81K7_ZI_1Z5ow8CeIcJLZ26LxoReJzcf-ETPGo"
@@ -110,18 +110,18 @@ df_logs = load_logs_data()
 auto_refresh = False
 
 # ==========================================
-# 3. ส่วน Sidebar (ตัวเลือกสำหรับหน้า Summary เท่านั้น)
+# 3. ส่วน Sidebar (เพิ่ม Daily, Monthly, Yearly, Latest)
 # ==========================================
 with st.sidebar:
-    st.header("⚡ ควบคุมระบบ")
-    auto_refresh = st.toggle("เปิดระบบดึงข้อมูลอัตโนมัติ (ทุกๆ 60 วินาที)", value=False)
+    st.header("⚡ ควบคุมระบบ Real-time")
+    auto_refresh = st.toggle("เปิดโหมด Auto-Refresh (ทุก 60 วิ)", value=False)
     
     if auto_refresh:
         st.success("🟢 ระบบกำลังดึงข้อมูลอัตโนมัติ")
     else:
         st.info("⚪ ระบบหยุดดึงข้อมูลอัตโนมัติ")
         
-    if st.button("🔄 ดึงข้อมูลระบบทันที (Manual)", use_container_width=True):
+    if st.button("🔄 ดึงข้อมูลทันที (Manual)", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
         
@@ -129,11 +129,14 @@ with st.sidebar:
     st.header("⚙️ ตั้งค่าระบบ")
     electric_rate = st.number_input("💵 อัตราค่าไฟ (บาท/หน่วย)", value=4.0, step=0.1)
     
-    st.subheader("📊 เลือกข้อมูลสรุปผล")
-    summary_mode = st.radio("สรุปผล", ["Latest (ล่าสุด)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
+    st.subheader("📊 เลือกมุมมอง (สำหรับหน้า Summary)")
+    summary_mode = st.radio("โหมดสรุปผล", ["Latest (ล่าสุด)", "Daily (รายวัน)", "Monthly (รายเดือน)", "Yearly (รายปี)"])
     
     selected_target = None
-    if summary_mode == "Monthly (รายเดือน)":
+    if summary_mode == "Daily (รายวัน)":
+        days = sorted(df['date_only'].dropna().unique(), reverse=True) if not df.empty and 'date_only' in df.columns else []
+        selected_target = st.selectbox("เลือกวันที่", days) if days else None
+    elif summary_mode == "Monthly (รายเดือน)":
         months = sorted(df['year_month'].dropna().unique(), reverse=True) if not df.empty and 'year_month' in df.columns else []
         selected_target = st.selectbox("เลือกเดือน", months) if months else None
     elif summary_mode == "Yearly (รายปี)":
@@ -145,9 +148,9 @@ with st.sidebar:
 # ==========================================
 # 4. สร้าง 3 แท็บหลัก
 # ==========================================
-tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักรขณะนี้ (Live Status)", "📊 สรุปผลภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
+tab1, tab2, tab3 = st.tabs(["🔴 สถานะเครื่องจักร (Live Status)", "📊 สรุปภาพรวม (Summary)", "📂 อัปโหลดไฟล์ Excel (Custom Upload)"])
 
-# ---------------- แท็บที่ 1: สถานะเครื่องจักร ----------------
+# ---------------- แท็บที่ 1: สถานะเครื่องจักร (Real-time) ----------------
 with tab1:
     if db_error:
         st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล Supabase: {db_error}")
@@ -158,7 +161,7 @@ with tab1:
         latest_time = latest_data['created_at'].strftime('%H:%M:%S') if 'created_at' in df.columns else 'N/A'
         latest_date_str = latest_data['created_at'].strftime('%Y-%m-%d') if 'created_at' in df.columns else 'N/A'
         
-        st.subheader(f"🔴 มอนิเตอร์ Turbine ขณะนี้ (ประจำวันที่ {latest_date_str})")
+        st.subheader(f"🔴 มอนิเตอร์ค่าเซ็นเซอร์ล่าสุด (ประจำวันที่ {latest_date_str})")
         if auto_refresh:
             st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         else:
@@ -230,7 +233,7 @@ with tab1:
                     cols[j].markdown(card_html, unsafe_allow_html=True)
                     
         st.markdown("<br><hr>", unsafe_allow_html=True)
-        st.subheader("📋 บันทึกเหตุการณ์ที่เกิดขึ้น (Event Summary)")
+        st.subheader("📋 บันทึกเหตุการณ์สำคัญล่าสุด (Event Summary)")
         if not df_logs.empty:
             latest_log = df_logs.iloc[0]
             log_time = latest_log.get('created_at', 'N/A')
@@ -249,9 +252,9 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.info("ไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
+            st.info("ยังไม่มีบันทึกเหตุการณ์ (Log) ในระบบ")
 
-# ---------------- แท็บที่ 2: สรุปภาพรวม ----------------
+# ---------------- แท็บที่ 2: สรุปภาพรวม (Summary - รองรับ Daily, Monthly, Yearly) ----------------
 with tab2:
     if df.empty:
         st.warning("⏳ ไม่พบข้อมูลในระบบ...")
@@ -259,6 +262,9 @@ with tab2:
         if summary_mode == "Latest (ล่าสุด)":
             filtered_df = df.tail(24)
             mode_label = "ข้อมูลล่าสุด (24 รายการล่าสุด)"
+        elif summary_mode == "Daily (รายวัน)" and selected_target:
+            filtered_df = df[df['date_only'] == selected_target]
+            mode_label = f"ประจำวันที่ {selected_target}"
         elif summary_mode == "Monthly (รายเดือน)" and selected_target:
             filtered_df = df[df['year_month'] == selected_target]
             mode_label = f"ประจำเดือน {selected_target}"
@@ -279,7 +285,7 @@ with tab2:
             
             st.subheader(f"📌 สรุปผลการดำเนินงาน ({mode_label})")
             col1, col2, col3 = st.columns(3)
-            col1.metric("⚡ พลังงานที่ผลิตได้ (MWh)", f"{total_production:,.3f}")
+            col1.metric("⚡ พลังงานรวมที่ผลิตได้ (MWh)", f"{total_production:,.3f}")
             col2.metric("💰 รายได้โดยประมาณ (บาท)", f"{total_revenue:,.2f}")
             col3.metric("⏱️ จำนวนข้อมูลทั้งหมด (รายการ)", f"{len(filtered_df):,}")
             
@@ -340,7 +346,7 @@ with tab2:
                         
                 excel_data = output.getvalue()
                 st.download_button(
-                    label="📥 ดาวน์โหลดตารางสรุปผล Excel (.xlsx)",
+                    label="📥 ดาวน์โหลดตารางสรุปผลเป็น Excel (.xlsx)",
                     data=excel_data,
                     file_name=f"turbine_summary_{summary_mode.split()[0].lower()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -349,8 +355,8 @@ with tab2:
 
 # ---------------- แท็บที่ 3: อัปโหลดไฟล์ Excel ----------------
 with tab3:
-    st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณ")
-    st.markdown("ลากไฟล์ Excel (`.xlsx` หรือ `.csv`) ที่กรอกข้อมูลเสร็จแล้วมาวางด้านล่างนี้ ระบบจะแสดงผลออกมาทันทีครับ")
+    st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณเพื่อแสดงผลข้อมูลทันที")
+    st.markdown("คุณสามารถลากไฟล์ Excel (`.xlsx` หรือ `.csv`) ที่กรอกข้อมูลเสร็จแล้วมาวางด้านล่างนี้ได้เลย ระบบจะแสดงผลออกมาเป็นหน้าแดชบอร์ดและการ์ดมอนิเตอร์ทันทีครับ")
     
     uploaded_file = st.file_uploader("ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์", type=["xlsx", "csv"], key="custom_excel_uploader")
     
