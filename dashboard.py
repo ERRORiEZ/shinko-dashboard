@@ -430,7 +430,7 @@ with tab1:
 
         st.subheader(f"🔴 มอนิเตอร์ขณะนี้ (ประจำวันที่ {latest_date_thai})")
         if auto_refresh:
-            st.markdown(f"สถานะ: <span class='status-live'>Live 🟢 (เรียลไทม์)</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
+            st.markdown(f"สถานะ: <span class='status-live'>ออนไลน์ 🟢 (เรียลไทม์)</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         else:
             st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
