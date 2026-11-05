@@ -538,12 +538,12 @@ def build_alert_panel(row):
     # ปุ่มลอยมุมขวาล่าง: ปิดอยู่เป็นปุ่มเม็ดยา กดแล้วกางเป็นกล่องรายละเอียด กดที่หัวกล่องอีกครั้งเพื่อพับ
     css = (
         '<style>'
-        '#alert-fab{position:fixed;right:20px;bottom:20px;z-index:999;font-family:Inter,Tahoma,sans-serif;}'
+        '#alert-fab{position:fixed;right:20px;bottom:90px;z-index:999;font-family:Inter,Tahoma,sans-serif;}'
         f'#alert-fab details{{background:#fff;border:2px solid {color};border-radius:999px;'
         'box-shadow:0 6px 18px rgba(0,0,0,0.22);overflow:hidden;}'
         '#alert-fab details[open]{border-radius:12px;width:min(340px,90vw);}'
-        f'#alert-fab summary{{cursor:pointer;list-style:none;padding:10px 18px;background:{color};'
-        'color:#fff;font-weight:700;font-size:14px;white-space:nowrap;user-select:none;}'
+        f'#alert-fab summary{{cursor:pointer;list-style:none;padding:7px 14px;background:{color};'
+        'color:#fff;font-weight:700;font-size:13px;white-space:nowrap;user-select:none;}'
         '#alert-fab summary::-webkit-details-marker{display:none;}'
         '#alert-fab details.trip:not([open]){animation:alertpulse 1.6s infinite;}'
         '@keyframes alertpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6);}'
