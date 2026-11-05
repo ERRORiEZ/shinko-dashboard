@@ -216,7 +216,7 @@ if not df.empty and 'created_at' in df.columns:
     _age_min = (pd.Timestamp.now(tz='Asia/Bangkok') - _latest_ts).total_seconds() / 60
     if _age_min > STALE_MINUTES:
         st.error(
-            f"⚠️ **ข้อมูลไม่อัปเดต** บันทึกเมื่อวันที่ {to_thai_date_str(_latest_ts)} "
+            f"⚠️ **ขณะนี้ข้อมูลไม่อัปเดต** บันทึกเมื่อวันที่ {to_thai_date_str(_latest_ts)} "
             f"เวลา {_latest_ts.strftime('%H:%M:%S')} น. (ผ่านมาแล้ว {fmt_age(_age_min)}) "
         )
 
