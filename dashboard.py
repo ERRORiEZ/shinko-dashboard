@@ -522,9 +522,10 @@ with tab2:
                     worksheet = writer.sheets['Summary']
 
                     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-                    side = Side(style='thin', color='E2E8F0')
+                    side = Side(style='thin', color='000000')  # เส้นกรอบสีดำ เห็นชัดทุกช่อง
                     thin_border = Border(left=side, right=side, top=side, bottom=side)
-                    header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+                    header_fill = PatternFill(start_color='BFDBFE', end_color='BFDBFE', fill_type='solid')
+                    zebra_fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
                     header_font = Font(name='Tahoma', size=11, bold=True, color='334155')
                     cell_font = Font(name='Tahoma', size=11, color='1E293B')
 
@@ -552,6 +553,8 @@ with tab2:
                         for col_num in range(1, n_cols + 1):
                             cell = worksheet.cell(row=row_num, column=col_num)
                             cell.font, cell.border = cell_font, thin_border
+                            if (row_num - HEADER_ROW) % 2 == 0:
+                                cell.fill = zebra_fill  # สลับสีแถว ช่วยให้อ่านตามแถวง่ายขึ้น
                             cell.alignment = Alignment(horizontal='left' if col_num == 1 else ('center' if col_num == 2 else 'right'), vertical='center')
                             if col_num > 2 and is_num(cell.value):
                                 cell.number_format = '#,##0' if float(cell.value).is_integer() else '#,##0.00'
