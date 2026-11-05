@@ -107,7 +107,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚙️ ELECTRIC TURBINE")
+st.title("⚙️ ELECTRIC TURBINE (กังหันผลิตไฟฟ้า)")
 st.markdown("ระบบมอนิเตอร์และสรุปผล")
 st.markdown("---")
 
@@ -339,6 +339,52 @@ def get_unit(col_name):
     return ""
 
 
+# คำแปลภาษาไทย (ศัพท์วิศวกรรม) ของชื่อพารามิเตอร์ ใช้แสดงในไฟล์ Excel
+# ถ้ามีคอลัมน์ใหม่ที่ไม่อยู่ในรายการนี้ จะแสดงเป็นภาษาอังกฤษอย่างเดียว เพิ่มคำแปลได้ที่นี่
+THAI_PARAM_NAMES = {
+    "GENERATOR OUTPUT": "กำลังไฟฟ้าของเครื่องกำเนิดไฟฟ้า",
+    "OPERATING RATE": "อัตราการเดินเครื่อง",
+    "WATT HOUR": "พลังงานไฟฟ้าสะสม",
+    "STARTS": "จำนวนครั้งการสตาร์ท",
+    "TRIPS": "จำนวนครั้งที่ทริป (หยุดเครื่องฉุกเฉิน)",
+    "ALARMS": "จำนวนครั้งที่แจ้งเตือน (อะลาร์ม)",
+    "RUNNING TIME": "เวลาเดินเครื่องสะสม",
+    "TURBINE SPEED": "ความเร็วรอบกังหัน",
+    "INLET STEAM FLOW": "อัตราการไหลของไอน้ำขาเข้า",
+    "ACTUATOR DEMAND": "สัญญาณสั่งงานแอกชูเอเตอร์",
+    "INLET STEAM PRESS": "ความดันไอน้ำขาเข้า",
+    "EXH STEAM PRESS": "ความดันไอน้ำขาออก",
+    "LUB OIL PRESS": "ความดันน้ำมันหล่อลื่น",
+    "CONT OIL PRESS": "ความดันน้ำมันควบคุม",
+    "INLET STEAM TEMP": "อุณหภูมิไอน้ำขาเข้า",
+    "EXH STEAM TEMP": "อุณหภูมิไอน้ำขาออก",
+    "LUB OIL OUTLET TEMP": "อุณหภูมิน้ำมันหล่อลื่นขาออก",
+    "TURBINE THRUST BEARING TEMP": "อุณหภูมิแบริ่งรับแรงตามแนวแกนของกังหัน",
+    "TURBINE BEARING GOV TEMP": "อุณหภูมิแบริ่งกังหันด้านโกเวอร์เนอร์",
+    "TURBINE BEARING CP TEMP": "อุณหภูมิแบริ่งกังหันด้านคัปปลิง",
+    "PINION BEARING TBN TEMP": "อุณหภูมิแบริ่งพิเนียนด้านกังหัน",
+    "WHEEL BEARING TBN TEMP": "อุณหภูมิแบริ่งวีลเกียร์ด้านกังหัน",
+    # ชื่อหัวการ์ดในหน้า Live Status
+    "THE LAST START UP DATE TIME": "วัน-เวลาที่สตาร์ทเครื่องล่าสุด",
+    "THE NUMBER OF STARTS": "จำนวนครั้งการสตาร์ท",
+    "THE NUMBER OF TRIPS": "จำนวนครั้งที่ทริป (หยุดเครื่องฉุกเฉิน)",
+    "THE NUMBER OF ALARMS": "จำนวนครั้งที่แจ้งเตือน (อะลาร์ม)",
+    "TURBINE RUNNING TIME": "เวลาเดินเครื่องสะสมของกังหัน",
+}
+
+
+def thai_name(name):
+    """คืนคำแปลไทยของชื่อพารามิเตอร์ (ไม่มีในรายการจะคืน None)"""
+    return THAI_PARAM_NAMES.get(str(name).upper().replace('_', ' ').strip())
+
+
+def thai_title_html(name):
+    """บรรทัดคำแปลไทยใต้ชื่อบนหัวการ์ด"""
+    th = thai_name(name)
+    if not th:
+        return ''
+    return f'<div style="font-weight:400;font-size:0.8rem;letter-spacing:0;">({html.escape(th)})</div>'
+
 HEADER_COLORS = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
 
 # ==========================================
@@ -359,10 +405,19 @@ with tab1:
 
         st.subheader(f"🔴 มอนิเตอร์ขณะนี้ (ประจำวันที่ {latest_date_thai})")
         if auto_refresh:
-            st.markdown(f"สถานะ: <span class='status-live'>Live 🟢</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
+            st.markdown(f"สถานะ: <span class='status-live'>Live 🟢 (เรียลไทม์)</span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         else:
             st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
+
+        with st.expander("📖 คำอธิบายสัญลักษณ์ (Legend)"):
+            st.markdown(
+                "- **RATED** = ค่าพิกัดออกแบบของเครื่อง\n"
+                "- **ALARM(H) / ALARM(L)** = แจ้งเตือนเมื่อค่าสูงเกิน (H) หรือต่ำกว่า (L) ค่าที่กำหนด\n"
+                "- **TRIP(H) / TRIP(L)** = ทริป คือระบบสั่งหยุดเครื่องอัตโนมัติเมื่อค่าสูงเกิน (H) หรือต่ำกว่า (L) ค่าที่กำหนด\n"
+                "- **barG** = ความดันเกจ (บาร์เกจ), **kW** = กิโลวัตต์, **RPM** = รอบต่อนาที, "
+                "**°C** = องศาเซลเซียส, **m³/h** = ลูกบาศก์เมตรต่อชั่วโมง, **min** = นาที"
+            )
 
         exclude_cols = ['id', 'created_at', 'date_only', 'year_month', 'year_only']
         all_sensor_cols = [col for col in latest_data.index if col not in exclude_cols]
@@ -408,14 +463,14 @@ with tab1:
                 value_color = "#0f172a"
                 if status == "TRIP":
                     border, value_color = f"2px solid {C_TRIP}", C_TRIP
-                    badge = f'<span style="background:{C_TRIP};color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-left:8px;">TRIP</span>'
+                    badge = f'<span style="background:{C_TRIP};color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-left:8px;">TRIP (ทริป)</span>'
                 elif status == "ALARM":
                     border, value_color = f"2px solid {C_ALARM}", C_ALARM
-                    badge = f'<span style="background:{C_ALARM};color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-left:8px;">ALARM</span>'
+                    badge = f'<span style="background:{C_ALARM};color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-left:8px;">ALARM (แจ้งเตือน)</span>'
 
                 card_html = (
                     f'<div style="background-color:#ffffff;border:{border};border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.03);overflow:hidden;margin-bottom:20px;">'
-                    f'<div style="background-color:{bg_color};color:white;padding:10px 15px;font-weight:600;font-size:0.95rem;text-align:center;letter-spacing:0.5px;">{html.escape(display_title)}{badge}</div>'
+                    f'<div style="background-color:{bg_color};color:white;padding:10px 15px;font-weight:600;font-size:0.95rem;text-align:center;letter-spacing:0.5px;">{html.escape(display_title)}{badge}{thai_title_html(display_title)}</div>'
                     f'<div style="padding:18px 20px;display:flex;align-items:center;justify-content:space-between;min-height:80px;">'
                     f'<div style="flex:1;">{left_tags}</div>'
                     f'<div style="flex:1.5;text-align:center;color:{value_color};font-size:1.8rem;font-weight:700;">{html.escape(display_val)}</div>'
@@ -436,7 +491,7 @@ with tab1:
 
             st.markdown(f"""
             <div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.03);overflow:hidden;margin-top:15px;">
-                <div style="background-color:#06b6d4;color:white;padding:12px 20px;font-weight:600;font-size:1.1rem;text-align:center;">⚠️ Event Summary</div>
+                <div style="background-color:#06b6d4;color:white;padding:12px 20px;font-weight:600;font-size:1.1rem;text-align:center;">⚠️ Event Summary (สรุปเหตุการณ์)</div>
                 <div style="padding:25px;text-align:center;color:#1e293b;">
                     <div style="font-size:1.15rem;font-weight:600;margin-bottom:10px;color:#334155;">{log_time_str}</div>
                     <div style="font-size:1.05rem;margin-bottom:8px;font-weight:500;">{log_msg}</div>
@@ -507,11 +562,16 @@ with tab2:
                 summary_df.index = [str(c).upper().replace('_', ' ') for c in summary_df.index]
 
                 display_summary_df = summary_df.apply(lambda s: s.map(fmt_num))
+                display_summary_df.index = [f"{n} ({thai_name(n)})" if thai_name(n) else n for n in display_summary_df.index]
                 st.dataframe(display_summary_df, use_container_width=True)
 
                 export_df = summary_df.reset_index()
                 export_df.columns = ['พารามิเตอร์ (Parameter)', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
                 export_df.insert(1, 'หน่วย (Unit)', units_list)
+                # ใส่คำแปลภาษาไทยในวงเล็บ ขึ้นบรรทัดใหม่ใต้ชื่อภาษาอังกฤษ
+                export_df['พารามิเตอร์ (Parameter)'] = export_df['พารามิเตอร์ (Parameter)'].map(
+                    lambda n: f"{n}\n({THAI_PARAM_NAMES[n]})" if n in THAI_PARAM_NAMES else n
+                )
 
                 HEADER_ROW = 6  # แถว 1-4 เป็นหัวรายงาน, แถว 5 เว้นว่าง, แถว 6 เป็นหัวตาราง
                 t_min, t_max = filtered_df['created_at'].min(), filtered_df['created_at'].max()
@@ -555,13 +615,15 @@ with tab2:
                             cell.font, cell.border = cell_font, thin_border
                             if (row_num - HEADER_ROW) % 2 == 0:
                                 cell.fill = zebra_fill  # สลับสีแถว ช่วยให้อ่านตามแถวง่ายขึ้น
-                            cell.alignment = Alignment(horizontal='left' if col_num == 1 else ('center' if col_num == 2 else 'right'), vertical='center')
+                            cell.alignment = Alignment(horizontal='left' if col_num == 1 else ('center' if col_num == 2 else 'right'), vertical='center', wrap_text=(col_num == 1))
+                            if col_num == 1 and '\n' in str(cell.value):
+                                worksheet.row_dimensions[row_num].height = 32  # เผื่อที่ 2 บรรทัด
                             if col_num > 2 and is_num(cell.value):
                                 cell.number_format = '#,##0' if float(cell.value).is_integer() else '#,##0.00'
 
                     # ความกว้างคอลัมน์คิดจากตารางเท่านั้น (ไม่รวมหัวรายงานที่ยาว)
                     for column in worksheet.columns:
-                        max_len_col = max(len(str(c.value or '')) for c in column if c.row >= HEADER_ROW)
+                        max_len_col = max(max(len(line) for line in str(c.value or '').split('\n')) for c in column if c.row >= HEADER_ROW)
                         worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 16)
 
                     worksheet.freeze_panes = f"A{HEADER_ROW + 1}"
@@ -613,7 +675,7 @@ with tab3:
 
                 card_box = (
                     f'<div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0;margin-bottom:20px;box-shadow:0 4px 6px rgba(0,0,0,0.03);overflow:hidden;">'
-                    f'<div style="background-color:{bg_color};color:white;padding:10px 15px;font-weight:600;font-size:0.95rem;text-align:center;letter-spacing:0.5px;">{c_title}</div>'
+                    f'<div style="background-color:{bg_color};color:white;padding:10px 15px;font-weight:600;font-size:0.95rem;text-align:center;letter-spacing:0.5px;">{c_title}{thai_title_html(c_name)}</div>'
                     f'<div style="padding:20px;text-align:center;color:#0f172a;font-size:1.8rem;font-weight:700;">{val_str}</div></div>'
                 )
                 cols[idx % 2].markdown(card_box, unsafe_allow_html=True)
