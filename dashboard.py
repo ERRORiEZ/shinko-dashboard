@@ -107,7 +107,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚙️ ELECTRIC TURBINE (กังหันผลิตไฟฟ้า)")
+st.title("⚙️ ELECTRIC TURBINE")
 st.markdown("ระบบมอนิเตอร์และสรุปผล")
 st.markdown("---")
 
@@ -216,9 +216,8 @@ if not df.empty and 'created_at' in df.columns:
     _age_min = (pd.Timestamp.now(tz='Asia/Bangkok') - _latest_ts).total_seconds() / 60
     if _age_min > STALE_MINUTES:
         st.error(
-            f"⚠️ **ข้อมูลไม่อัปเดต** แถวล่าสุดบันทึกเมื่อ {to_thai_date_str(_latest_ts)} "
+            f"⚠️ **ข้อมูลไม่อัปเดต** บันทึกเมื่อ {to_thai_date_str(_latest_ts)} "
             f"{_latest_ts.strftime('%H:%M:%S')} น. (ผ่านมาแล้ว {fmt_age(_age_min)}) "
-            "กรุณาตรวจสอบว่าแท็บเว็บ Shinko ที่ติดตั้งส่วนขยาย Chrome ยังเปิดอยู่ ล็อกอินอยู่ และเครื่องไม่ได้สลีป"
         )
 
 # ==========================================
@@ -244,7 +243,7 @@ with st.sidebar:
     # หน่วยของคอลัมน์ watt_hour (ข้อมูลมาจากเว็บอื่น จึงให้เลือกเอง)
     WH_UNITS = {"Wh": 0.001, "kWh": 1.0, "MWh": 1000.0}  # ตัวคูณแปลงเป็น kWh
     wh_unit = st.selectbox(
-        "🔌 หน่วยของ watt_hour ในฐานข้อมูล",
+        "🔌 หน่วยของ WATT HOUR",
         list(WH_UNITS.keys()),
         index=2,
         help="ถ้าไม่แน่ใจ ให้เทียบผลที่ได้กับกำลังผลิตจริง (เครื่องนี้ rated 18,000 kW ≈ 18 MWh ต่อชั่วโมง)"
@@ -436,7 +435,7 @@ with tab1:
             st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        with st.expander("📖 คำอธิบายสัญลักษณ์ (Legend)"):
+        with st.expander("📖 คำอธิบายสัญลักษณ์"):
             st.markdown(
                 "- **RATED** = ค่าพิกัดออกแบบของเครื่อง\n"
                 "- **ALARM(H) / ALARM(L)** = แจ้งเตือนเมื่อค่าสูงเกิน (H) หรือต่ำกว่า (L) ค่าที่กำหนด\n"
