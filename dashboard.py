@@ -197,6 +197,31 @@ df, db_error = load_data()
 df_logs, logs_error = load_logs_data()
 
 # ==========================================
+# แจ้งเตือนเมื่อข้อมูลไม่อัปเดต (ส่วนขยาย Chrome ส่งข้อมูลทุก 1 นาที)
+# ==========================================
+STALE_MINUTES = 5  # เตือนเมื่อแถวล่าสุดเก่ากว่ากี่นาที
+
+
+def fmt_age(minutes):
+    minutes = int(minutes)
+    if minutes < 60:
+        return f"{minutes} นาที"
+    if minutes < 1440:
+        return f"{minutes // 60} ชั่วโมง {minutes % 60} นาที"
+    return f"{minutes // 1440} วัน {(minutes % 1440) // 60} ชั่วโมง"
+
+
+if not df.empty and 'created_at' in df.columns:
+    _latest_ts = df['created_at'].max()
+    _age_min = (pd.Timestamp.now(tz='Asia/Bangkok') - _latest_ts).total_seconds() / 60
+    if _age_min > STALE_MINUTES:
+        st.error(
+            f"⚠️ **ข้อมูลไม่อัปเดต** แถวล่าสุดบันทึกเมื่อ {to_thai_date_str(_latest_ts)} "
+            f"{_latest_ts.strftime('%H:%M:%S')} น. (ผ่านมาแล้ว {fmt_age(_age_min)}) "
+            "กรุณาตรวจสอบว่าแท็บเว็บ Shinko ที่ติดตั้งส่วนขยาย Chrome ยังเปิดอยู่ ล็อกอินอยู่ และเครื่องไม่ได้สลีป"
+        )
+
+# ==========================================
 # 3. ส่วน Sidebar
 # ==========================================
 with st.sidebar:
@@ -353,6 +378,7 @@ THAI_PARAM_NAMES = {
     "INLET STEAM FLOW": "อัตราการไหลของไอน้ำขาเข้า",
     "ACTUATOR DEMAND": "สัญญาณสั่งงานแอกชูเอเตอร์",
     "INLET STEAM PRESS": "ความดันไอน้ำขาเข้า",
+    "AVG 1ST STAGE STEAM PRESS": "ความดันไอน้ำเฉลี่ยที่สเตจแรก",
     "EXH STEAM PRESS": "ความดันไอน้ำขาออก",
     "LUB OIL PRESS": "ความดันน้ำมันหล่อลื่น",
     "CONT OIL PRESS": "ความดันน้ำมันควบคุม",
