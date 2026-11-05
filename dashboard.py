@@ -503,42 +503,65 @@ with tab2:
             if numeric_cols:
                 summary_df = filtered_df[numeric_cols].agg(['mean', 'max', 'min']).T
                 summary_df.columns = ['ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                units_list = [get_unit(str(c)) for c in summary_df.index]
                 summary_df.index = [str(c).upper().replace('_', ' ') for c in summary_df.index]
 
                 display_summary_df = summary_df.apply(lambda s: s.map(fmt_num))
                 st.dataframe(display_summary_df, use_container_width=True)
 
                 export_df = summary_df.reset_index()
-                export_df.columns = ['', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                export_df.columns = ['พารามิเตอร์ (Parameter)', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
+                export_df.insert(1, 'หน่วย (Unit)', units_list)
+
+                HEADER_ROW = 6  # แถว 1-4 เป็นหัวรายงาน, แถว 5 เว้นว่าง, แถว 6 เป็นหัวตาราง
+                t_min, t_max = filtered_df['created_at'].min(), filtered_df['created_at'].max()
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, index=False, startrow=0, sheet_name='Summary')
+                    export_df.to_excel(writer, index=False, startrow=HEADER_ROW - 1, sheet_name='Summary')
                     worksheet = writer.sheets['Summary']
 
                     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
                     side = Side(style='thin', color='E2E8F0')
                     thin_border = Border(left=side, right=side, top=side, bottom=side)
                     header_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
-                    header_font = Font(name='Inter', size=11, bold=True, color='334155')
-                    cell_font = Font(name='Inter', size=11, color='1E293B')
+                    header_font = Font(name='Tahoma', size=11, bold=True, color='334155')
+                    cell_font = Font(name='Tahoma', size=11, color='1E293B')
 
-                    for col_num in range(1, len(export_df.columns) + 1):
-                        cell = worksheet.cell(row=1, column=col_num)
+                    # ----- หัวรายงาน -----
+                    worksheet.cell(row=1, column=1, value="สรุปผลการดำเนินงาน ELECTRIC TURBINE").font = Font(name='Tahoma', size=14, bold=True, color='1E3A8A')
+                    worksheet.cell(row=2, column=1, value=f"ช่วงเวลาที่สรุป: {mode_label}").font = cell_font
+                    worksheet.cell(row=3, column=1, value=(
+                        f"ข้อมูลตั้งแต่ {to_thai_date_str(t_min)} {t_min.strftime('%H:%M')} น. "
+                        f"ถึง {to_thai_date_str(t_max)} {t_max.strftime('%H:%M')} น. ({len(filtered_df):,} รายการ)"
+                    )).font = cell_font
+                    worksheet.cell(row=4, column=1, value=(
+                        f"พลังงานที่ผลิตได้ {total_production_mwh:,.3f} MWh | "
+                        f"รายได้โดยประมาณ {total_revenue:,.2f} บาท (อัตรา {electric_rate:,.2f} บาท/หน่วย)"
+                    )).font = cell_font
+
+                    # ----- หัวตาราง -----
+                    n_cols = len(export_df.columns)
+                    for col_num in range(1, n_cols + 1):
+                        cell = worksheet.cell(row=HEADER_ROW, column=col_num)
                         cell.font, cell.fill, cell.border = header_font, header_fill, thin_border
-                        cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
+                        cell.alignment = Alignment(horizontal='left' if col_num == 1 else ('center' if col_num == 2 else 'right'), vertical='center')
 
-                    for row_num in range(2, len(export_df) + 2):
-                        for col_num in range(1, len(export_df.columns) + 1):
+                    # ----- ข้อมูล -----
+                    for row_num in range(HEADER_ROW + 1, HEADER_ROW + len(export_df) + 1):
+                        for col_num in range(1, n_cols + 1):
                             cell = worksheet.cell(row=row_num, column=col_num)
                             cell.font, cell.border = cell_font, thin_border
-                            cell.alignment = Alignment(horizontal='left' if col_num == 1 else 'right', vertical='center')
-                            if col_num > 1 and is_num(cell.value):
+                            cell.alignment = Alignment(horizontal='left' if col_num == 1 else ('center' if col_num == 2 else 'right'), vertical='center')
+                            if col_num > 2 and is_num(cell.value):
                                 cell.number_format = '#,##0' if float(cell.value).is_integer() else '#,##0.00'
 
+                    # ความกว้างคอลัมน์คิดจากตารางเท่านั้น (ไม่รวมหัวรายงานที่ยาว)
                     for column in worksheet.columns:
-                        max_len_col = max(len(str(c.value or '')) for c in column)
-                        worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 20)
+                        max_len_col = max(len(str(c.value or '')) for c in column if c.row >= HEADER_ROW)
+                        worksheet.column_dimensions[column[0].column_letter].width = max(max_len_col + 6, 16)
+
+                    worksheet.freeze_panes = f"A{HEADER_ROW + 1}"
 
                 st.download_button(
                     label="📥 ดาวน์โหลดตารางสรุปผล Excel (.xlsx)",
