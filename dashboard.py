@@ -410,6 +410,158 @@ def thai_title_html(name):
         return ''
     return f'<div style="font-weight:400;font-size:0.8rem;letter-spacing:0;">({html.escape(th)})</div>'
 
+def get_display_title(raw_name):
+    """แปลงชื่อคอลัมน์ (ตัวพิมพ์ใหญ่ เว้นวรรค) เป็นชื่อหัวการ์ดที่ใช้แสดง"""
+    if "START" in raw_name and "TIME" in raw_name:
+        return "THE LAST START UP DATE TIME"
+    if "START" in raw_name:
+        return "THE NUMBER OF STARTS"
+    if "TRIP" in raw_name:
+        return "THE NUMBER OF TRIPS"
+    if "ALARM" in raw_name:
+        return "THE NUMBER OF ALARMS"
+    if "RUNNING" in raw_name or "RUN" in raw_name:
+        return "TURBINE RUNNING TIME"
+    return raw_name
+
+
+NO_SIGNAL_VALUE = -10000  # ค่าที่ระบบ Shinko ส่งมาเมื่ออ่านเซนเซอร์ไม่ได้
+STOPPED_SPEED_RPM = 100   # ต่ำกว่านี้ถือว่าเครื่องน่าจะหยุดอยู่
+
+
+def get_breach(val, limits):
+    """ถ้าค่าเกินเกณฑ์ คืน (สถานะ, ค่าเกณฑ์, ทิศทาง H/L, หน่วย) ไม่เกินคืน None"""
+    if not is_num(val) or pd.isna(val):
+        return None
+    for key, name in (("trip", "TRIP"), ("alarm", "ALARM")):
+        if key in limits:
+            limit, direction, unit = limits[key]
+            if (direction == "H" and val >= limit) or (direction == "L" and val <= limit):
+                return name, limit, direction, unit
+    return None
+
+
+def build_alert_panel(row):
+    """สร้างกล่องแจ้งเตือนลอยมุมขวาล่าง แสดงรายการที่ผิดปกติของข้อมูลแถวล่าสุด"""
+    exclude = {'id', 'created_at', 'date_only', 'year_month', 'year_only'}
+    trips, alarms, nosig = [], [], []
+    speed_val = None
+    has_low = False
+
+    for col in row.index:
+        if col in exclude:
+            continue
+        val = row[col]
+        col_s = str(col)
+        if 'speed' in col_s.lower() and is_num(val):
+            speed_val = val
+        title = get_display_title(col_s.upper().replace('_', ' '))
+        unit = get_unit(col_s)
+
+        if is_num(val) and not pd.isna(val) and val == NO_SIGNAL_VALUE:
+            nosig.append((title, unit))
+            continue
+
+        breach = get_breach(val, get_limits(title))
+        if breach:
+            status, limit, direction, b_unit = breach
+            has_low = has_low or direction == "L"
+            item = (title, val, unit, limit, direction, b_unit)
+            (trips if status == "TRIP" else alarms).append(item)
+
+    # ----- สีและหัวข้อของกล่อง -----
+    n_alert = len(trips) + len(alarms)
+    if trips:
+        color, head = C_TRIP, f"🔔 แจ้งเตือน ({n_alert})"
+    elif alarms:
+        color, head = C_ALARM, f"🔔 แจ้งเตือน ({n_alert})"
+    elif nosig:
+        color, head = "#64748b", f"🔔 สัญญาณขาด ({len(nosig)})"
+    else:
+        color, head = "#10b981", "🔔 ปกติ ✅"
+
+    chips = []
+    if trips:
+        chips.append(f"TRIP {len(trips)}")
+    if alarms:
+        chips.append(f"ALARM {len(alarms)}")
+    if nosig:
+        chips.append(f"ไม่มีสัญญาณ {len(nosig)}")
+    summary = " | ".join(chips) if chips else "ทุกค่าอยู่ในเกณฑ์"
+
+    def row_html(tag, tag_color, title, line2, line3=""):
+        th = thai_name(title)
+        th_html = f'<div style="font-size:11px;color:#64748b;">({html.escape(th)})</div>' if th else ''
+        l3 = f'<div style="font-size:11px;color:#64748b;">{line3}</div>' if line3 else ''
+        return (
+            '<div style="display:flex;gap:8px;padding:7px 0;border-top:1px solid #e2e8f0;">'
+            f'<span style="background:{tag_color};color:#fff;padding:1px 6px;border-radius:4px;'
+            f'font-size:11px;font-weight:700;height:fit-content;white-space:nowrap;">{tag}</span>'
+            '<div style="flex:1;min-width:0;">'
+            f'<div style="font-weight:600;font-size:12px;color:#0f172a;">{html.escape(title)}</div>'
+            f'{th_html}'
+            f'<div style="font-size:12px;font-weight:600;color:{tag_color};">{line2}</div>{l3}'
+            '</div></div>'
+        )
+
+    body = ""
+    for tag, tag_color, items in (("TRIP", C_TRIP, trips), ("ALARM", C_ALARM, alarms)):
+        for title, val, unit, limit, direction, b_unit in items:
+            cond = "ต่ำกว่าเกณฑ์" if direction == "L" else "สูงกว่าเกณฑ์"
+            body += row_html(
+                tag, tag_color, title,
+                html.escape(f"{fmt_num(val)} {unit}".strip()),
+                html.escape(f"{cond} {limit:,} {b_unit}"),
+            )
+    for title, unit in nosig:
+        body += row_html("NO SIGNAL", "#64748b", title, html.escape(f"อ่านค่าไม่ได้ ({NO_SIGNAL_VALUE:,})"))
+
+    if not body:
+        body = '<div style="padding:8px 0;font-size:12px;color:#475569;">ไม่พบค่าที่เกินเกณฑ์ ALARM / TRIP</div>'
+
+    note = ""
+    if has_low and speed_val is not None and speed_val < STOPPED_SPEED_RPM:
+        note = (
+            '<div style="margin-top:6px;padding:6px 8px;background:#f1f5f9;border-radius:6px;font-size:11px;color:#475569;">'
+            f'ℹ️ ความเร็วรอบกังหัน {html.escape(str(fmt_num(speed_val)))} RPM เครื่องอาจหยุดอยู่ '
+            'ค่าที่ต่ำกว่าเกณฑ์ (เช่น ความดัน) จึงเป็นเรื่องปกติของช่วงที่เครื่องหยุด</div>'
+        )
+
+    ts = row.get('created_at', None)
+    foot = ""
+    if ts is not None and hasattr(ts, 'strftime'):
+        age = (pd.Timestamp.now(tz='Asia/Bangkok') - ts).total_seconds() / 60
+        stale = f' <span style="color:#dc2626;font-weight:600;">⚠️ ข้อมูลเก่า {fmt_age(age)}</span>' if age > STALE_MINUTES else ''
+        foot = (f'<div style="margin-top:6px;font-size:11px;color:#64748b;">ข้อมูล ณ {to_thai_date_str(ts)} '
+                f'{ts.strftime("%H:%M:%S")} น.{stale}</div>')
+
+    # ปุ่มลอยมุมขวาล่าง: ปิดอยู่เป็นปุ่มเม็ดยา กดแล้วกางเป็นกล่องรายละเอียด กดที่หัวกล่องอีกครั้งเพื่อพับ
+    css = (
+        '<style>'
+        '#alert-fab{position:fixed;right:20px;bottom:20px;z-index:999;font-family:Inter,Tahoma,sans-serif;}'
+        f'#alert-fab details{{background:#fff;border:2px solid {color};border-radius:999px;'
+        'box-shadow:0 6px 18px rgba(0,0,0,0.22);overflow:hidden;}'
+        '#alert-fab details[open]{border-radius:12px;width:min(340px,90vw);}'
+        f'#alert-fab summary{{cursor:pointer;list-style:none;padding:10px 18px;background:{color};'
+        'color:#fff;font-weight:700;font-size:14px;white-space:nowrap;user-select:none;}'
+        '#alert-fab summary::-webkit-details-marker{display:none;}'
+        '#alert-fab details.trip:not([open]){animation:alertpulse 1.6s infinite;}'
+        '@keyframes alertpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6);}'
+        '70%{box-shadow:0 0 0 14px rgba(239,68,68,0);}100%{box-shadow:0 0 0 0 rgba(239,68,68,0);}}'
+        '</style>'
+    )
+    trip_cls = ' class="trip"' if trips else ''
+    return (
+        css +
+        '<div id="alert-fab">'
+        f'<details{trip_cls}>'
+        f'<summary>{head}</summary>'
+        '<div style="padding:8px 14px 10px 14px;max-height:55vh;overflow-y:auto;">'
+        f'<div style="font-size:12px;font-weight:700;color:{color};padding-bottom:2px;">{html.escape(summary)}</div>'
+        f'{body}{note}{foot}</div></details></div>'
+    )
+
+
 HEADER_COLORS = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
 
 # ==========================================
@@ -457,18 +609,7 @@ with tab1:
                 val = latest_data[col_name]
 
                 raw_name = str(col_name).upper().replace('_', ' ')
-                if "START" in raw_name and "TIME" in raw_name:
-                    display_title = "THE LAST START UP DATE TIME"
-                elif "START" in raw_name:
-                    display_title = "THE NUMBER OF STARTS"
-                elif "TRIP" in raw_name:
-                    display_title = "THE NUMBER OF TRIPS"
-                elif "ALARM" in raw_name:
-                    display_title = "THE NUMBER OF ALARMS"
-                elif "RUNNING" in raw_name or "RUN" in raw_name:
-                    display_title = "TURBINE RUNNING TIME"
-                else:
-                    display_title = raw_name
+                display_title = get_display_title(raw_name)
 
                 unit = get_unit(col_name)
                 if val is None or (not isinstance(val, str) and pd.isna(val)):
@@ -712,6 +853,12 @@ with tab3:
             st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
     else:
         st.info("💡 ยังไม่ได้อัปโหลดไฟล์ กรุณาเลือกไฟล์ Excel ในช่องด้านบนเพื่อดูผลลัพธ์")
+
+# ==========================================
+# กล่องแจ้งเตือนลอย (แสดงทุกแท็บ มุมขวาล่าง)
+# ==========================================
+if not df.empty:
+    st.markdown(build_alert_panel(df.iloc[-1]), unsafe_allow_html=True)
 
 # ==========================================
 # 5. ระบบ Auto-Refresh (ทุก 60 วินาที)
