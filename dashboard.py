@@ -779,7 +779,11 @@ with tab2:
 
                 display_summary_df = summary_df.apply(lambda s: s.map(fmt_num))
                 display_summary_df.index = [f"{n} ({thai_name(n)})" if thai_name(n) else n for n in display_summary_df.index]
-                st.dataframe(display_summary_df, use_container_width=True)
+                # ให้ชื่อพารามิเตอร์เป็นคอลัมน์ธรรมดา (ไม่ใช่ index) เพื่อให้เลื่อนไปพร้อมตัวเลขบนมือถือ
+                # ถ้าเป็น index ตารางของ Streamlit จะตรึงไว้ซ้ายสุดและเลื่อนเฉพาะตัวเลข
+                table_df = display_summary_df.reset_index()
+                table_df.columns = ['พารามิเตอร์ (Parameter)'] + list(display_summary_df.columns)
+                st.dataframe(table_df, use_container_width=True, hide_index=True)
 
                 export_df = summary_df.reset_index()
                 export_df.columns = ['พารามิเตอร์ (Parameter)', 'ค่าเฉลี่ย (Mean)', 'ค่าสูงสุด (Max)', 'ค่าต่ำสุด (Min)']
