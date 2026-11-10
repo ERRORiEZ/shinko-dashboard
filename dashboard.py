@@ -628,7 +628,7 @@ with tab1:
 
         st.subheader(f"🔴 มอนิเตอร์ขณะนี้ (ประจำวันที่ {latest_date_thai})")
         if auto_refresh:
-            st.markdown(f"สถานะ: <span class='status-live'>ออนไลน์ 🟢 </span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
+            st.markdown(f"สถานะ: <span class='status-live'>ออนไลน์ ⚪ </span> | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         else:
             st.markdown(f"สถานะ: ออฟไลน์ ⚪ | อัปเดตข้อมูลล่าสุดเมื่อเวลา: <span class='latest-time'>{latest_time}</span>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -857,15 +857,42 @@ with tab2:
                 )
 
 # ---------------- แท็บที่ 3 ----------------
+@st.cache_resource
+def get_upload_store():
+    """ที่เก็บไฟล์ที่อัปโหลดบนเซิร์ฟเวอร์ (ใช้ร่วมกันทุกคนที่เปิดเว็บ และหายเมื่อแอปรีสตาร์ท)"""
+    return {}
+
+
 with tab3:
     st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณเพื่อแสดงผลข้อมูล")
     st.markdown("ลากไฟล์ Excel (`.xlsx` หรือ `.csv`) ที่กรอกข้อมูลเสร็จแล้วมาวางด้านล่างนี้ได้เลย ระบบจะแสดงผลออกมาทันทีครับ")
 
-    uploaded_file = st.file_uploader("ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์", type=["xlsx", "csv"], key="custom_excel_uploader")
+    # เก็บไฟล์ไว้ในหน่วยความจำของเซิร์ฟเวอร์ เพื่อให้กด F5 แล้วไฟล์ยังอยู่ จนกว่าจะกดปุ่ม "ล้างไฟล์"
+    upload_store = get_upload_store()
+    if "uploader_key" not in st.session_state:
+        st.session_state["uploader_key"] = 0
 
+    uploaded_file = st.file_uploader(
+        "ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์", type=["xlsx", "csv"],
+        key=f"custom_excel_uploader_{st.session_state['uploader_key']}"
+    )
     if uploaded_file is not None:
+        _data = uploaded_file.getvalue()
+        if upload_store.get("name") != uploaded_file.name or upload_store.get("data") != _data:
+            upload_store["name"], upload_store["data"] = uploaded_file.name, _data
+
+    if upload_store.get("data") is not None:
+        c_info, c_btn = st.columns([4, 1])
+        c_info.caption(f"📄 ไฟล์ที่แสดงอยู่: {upload_store['name']} (ยังอยู่แม้รีเฟรชหน้า จนกว่าจะกดล้างไฟล์)")
+        if c_btn.button("🗑️ ล้างไฟล์", use_container_width=True):
+            upload_store.clear()
+            st.session_state["uploader_key"] += 1  # เปลี่ยน key เพื่อล้างช่องอัปโหลดด้วย
+            st.rerun()
+
+    if upload_store.get("data") is not None:
         try:
-            up_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+            _bio = io.BytesIO(upload_store["data"])
+            up_df = pd.read_csv(_bio) if upload_store["name"].lower().endswith('.csv') else pd.read_excel(_bio)
 
             if 'created_at' not in up_df.columns and 'timestamp' in up_df.columns:
                 up_df['created_at'] = pd.to_datetime(up_df['timestamp'])
