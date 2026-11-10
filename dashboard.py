@@ -857,6 +857,63 @@ with tab2:
                 )
 
 # ---------------- แท็บที่ 3 ----------------
+def load_uploaded_table(name, data):
+    """อ่านไฟล์ Excel/CSV แล้วหาแถวหัวตารางเอง (รองรับไฟล์ที่มีหัวรายงานอยู่ด้านบน)"""
+    import csv
+    if name.lower().endswith('.csv'):
+        text = None
+        for enc in ('utf-8-sig', 'cp874', 'utf-8'):  # CSV ภาษาไทยจาก Excel มักเป็น cp874
+            try:
+                text = data.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            text = data.decode('utf-8', errors='replace')
+        rows = list(csv.reader(io.StringIO(text)))
+        width = max((len(r) for r in rows), default=0)
+        raw = pd.DataFrame([r + [None] * (width - len(r)) for r in rows])
+        raw = raw.replace(r'^\s*$', np.nan, regex=True)
+    else:
+        raw = pd.read_excel(io.BytesIO(data), header=None)
+
+    raw = raw.dropna(how='all').dropna(axis=1, how='all').reset_index(drop=True)
+    if raw.empty:
+        return pd.DataFrame()
+
+    # แถวหัวตารางคือแถวแรกที่มีช่องไม่ว่างอย่างน้อย 60% ของจำนวนสูงสุดที่เจอใน 40 แถวแรก
+    counts = raw.notna().sum(axis=1)
+    need = max(1, int(np.ceil(0.6 * counts.head(40).max())))
+    hdr = next(i for i in range(len(raw)) if counts.iloc[i] >= need)
+
+    names, seen = [], {}
+    for j, v in enumerate(raw.iloc[hdr].tolist()):
+        n = '' if pd.isna(v) else ' '.join(str(v).split())
+        if not n:
+            n = f"คอลัมน์ {j + 1}"
+        if n in seen:
+            seen[n] += 1
+            n = f"{n} ({seen[n]})"
+        else:
+            seen[n] = 1
+        names.append(n)
+
+    table = raw.iloc[hdr + 1:].copy()
+    table.columns = names
+    table = table.dropna(how='all').reset_index(drop=True)
+
+    for col in table.columns:
+        col_data = to_numeric_smart(table[col])
+        if pd.api.types.is_numeric_dtype(col_data):
+            nn = col_data.dropna()
+            if len(nn) and (nn % 1 == 0).all():
+                col_data = col_data.astype('Int64')  # เลขจำนวนเต็มไม่ต้องมี .0
+        else:
+            col_data = col_data.map(lambda v: '' if pd.isna(v) else str(v))
+        table[col] = col_data
+    return table
+
+
 @st.cache_resource
 def get_upload_store():
     """ที่เก็บไฟล์ที่อัปโหลดบนเซิร์ฟเวอร์ (ใช้ร่วมกันทุกคนที่เปิดเว็บ และหายเมื่อแอปรีสตาร์ท)"""
@@ -864,8 +921,11 @@ def get_upload_store():
 
 
 with tab3:
-    st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณเพื่อแสดงผลข้อมูล")
-    st.markdown("ลากไฟล์ Excel (`.xlsx` หรือ `.csv`) ที่กรอกข้อมูลเสร็จแล้วมาวางด้านล่างนี้ได้เลย ระบบจะแสดงผลออกมาทันทีครับ")
+    st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณเพื่อแสดงตารางข้อมูล")
+    st.markdown(
+        "ลากไฟล์ Excel (`.xlsx`) หรือ `.csv` มาวางด้านล่างนี้ ระบบจะอ่านชื่อหัวตารางจากไฟล์และแสดงเป็นตารางให้ "
+        "(ถ้าไฟล์มีหัวรายงานอยู่ด้านบน ระบบจะหาแถวหัวตารางให้เอง)"
+    )
 
     # เก็บไฟล์ไว้ในหน่วยความจำของเซิร์ฟเวอร์ เพื่อให้กด F5 แล้วไฟล์ยังอยู่ จนกว่าจะกดปุ่ม "ล้างไฟล์"
     upload_store = get_upload_store()
@@ -889,51 +949,18 @@ with tab3:
             st.session_state["uploader_key"] += 1  # เปลี่ยน key เพื่อล้างช่องอัปโหลดด้วย
             st.rerun()
 
-    if upload_store.get("data") is not None:
         try:
-            _bio = io.BytesIO(upload_store["data"])
-            up_df = pd.read_csv(_bio) if upload_store["name"].lower().endswith('.csv') else pd.read_excel(_bio)
-
-            if 'created_at' not in up_df.columns and 'timestamp' in up_df.columns:
-                up_df['created_at'] = pd.to_datetime(up_df['timestamp'])
-            elif 'created_at' in up_df.columns:
-                up_df['created_at'] = pd.to_datetime(up_df['created_at'])
+            with st.spinner("กำลังอ่านไฟล์..."):
+                up_df = load_uploaded_table(upload_store["name"], upload_store["data"])
+            if up_df.empty:
+                st.warning("อ่านไฟล์ได้ แต่ไม่พบข้อมูลในตาราง")
             else:
-                up_df['created_at'] = pd.date_range(start='2026-01-01 00:00:00', periods=len(up_df), freq='h')
-
-            skip_cols = ['id', 'created_at']
-            for col in up_df.columns:
-                if col not in skip_cols:
-                    up_df[col] = to_numeric_smart(up_df[col])
-
-            up_df = up_df.sort_values('created_at', ascending=False)
-            latest_up = up_df.iloc[0]
-
-            st.success("🎉 อัปโหลดและประมวลผลไฟล์สำเร็จ! ข้อมูลถูกแสดงผลด้านล่างนี้ครับ")
-            st.markdown("---")
-
-            up_sensor_cols = [c for c in latest_up.index if c not in skip_cols]
-            cols = st.columns(2)
-            for idx, c_name in enumerate(up_sensor_cols):
-                val = latest_up[c_name]
-                c_title = html.escape(str(c_name).upper().replace('_', ' '))
-                val_str = html.escape(str(fmt_num(val)))
-                bg_color = HEADER_COLORS[idx % len(HEADER_COLORS)]
-
-                card_box = (
-                    f'<div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0;margin-bottom:20px;box-shadow:0 4px 6px rgba(0,0,0,0.03);overflow:hidden;">'
-                    f'<div style="background-color:{bg_color};color:white;padding:10px 15px;font-weight:600;font-size:0.95rem;text-align:center;letter-spacing:0.5px;">{c_title}{thai_title_html(c_name)}</div>'
-                    f'<div style="padding:20px;text-align:center;color:#0f172a;font-size:1.8rem;font-weight:700;">{val_str}</div></div>'
-                )
-                cols[idx % 2].markdown(card_box, unsafe_allow_html=True)
-
-            st.markdown("### 📋 ตารางข้อมูลดิบจากไฟล์ที่คุณอัปโหลด")
-            st.dataframe(up_df, use_container_width=True)
-
+                st.success(f"อ่านไฟล์สำเร็จ: {len(up_df):,} แถว {len(up_df.columns):,} คอลัมน์")
+                st.dataframe(up_df, use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
     else:
-        st.info("💡 ยังไม่ได้อัปโหลดไฟล์ กรุณาเลือกไฟล์ Excel ในช่องด้านบนเพื่อดูผลลัพธ์")
+        st.info("💡 ยังไม่ได้อัปโหลดไฟล์ กรุณาเลือกไฟล์ Excel ในช่องด้านบนเพื่อดูตาราง")
 
 # ==========================================
 # กล่องแจ้งเตือนลอย (แสดงทุกแท็บ มุมขวาล่าง)
