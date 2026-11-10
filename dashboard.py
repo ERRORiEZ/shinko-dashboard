@@ -562,6 +562,52 @@ def build_alert_panel(row):
     )
 
 
+def render_area_chart(series, color="#3b82f6", max_points=400):
+    """วาดกราฟพื้นที่ด้วย SVG เอง ไม่พึ่ง altair ใช้เมื่อ st.area_chart ใช้ไม่ได้"""
+    s = series.dropna()
+    if s.empty:
+        st.info("ไม่มีข้อมูลสำหรับสร้างกราฟ")
+        return
+    if len(s) > max_points:
+        s = s.iloc[::int(np.ceil(len(s) / max_points))]
+
+    W, H, L, R, T, B = 1000, 280, 70, 15, 15, 35
+    t0 = s.index[0]
+    xs = np.array([(t - t0).total_seconds() for t in s.index], dtype=float)
+    ys = s.to_numpy(dtype=float)
+    x_span = xs[-1] if xs[-1] > 0 else 1.0
+    y_lo, y_hi = min(0.0, float(ys.min())), float(ys.max())
+    if y_hi <= y_lo:
+        y_hi = y_lo + 1.0
+
+    def px(x):
+        return L + (x / x_span) * (W - L - R)
+
+    def py(y):
+        return T + (1 - (y - y_lo) / (y_hi - y_lo)) * (H - T - B)
+
+    pts = [(px(x), py(y)) for x, y in zip(xs, ys)]
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    base_y = py(max(y_lo, 0.0))
+    area = f"{pts[0][0]:.1f},{base_y:.1f} {line} {pts[-1][0]:.1f},{base_y:.1f}"
+
+    grid = ""
+    for k in range(5):
+        v = y_lo + (y_hi - y_lo) * k / 4
+        gy = py(v)
+        grid += (f'<line x1="{L}" y1="{gy:.1f}" x2="{W - R}" y2="{gy:.1f}" stroke="#e2e8f0" stroke-width="1"/>'
+                 f'<text x="{L - 8}" y="{gy + 4:.1f}" text-anchor="end" font-size="12" fill="#64748b">{v:,.0f}</text>')
+
+    t_first, t_last = s.index[0], s.index[-1]
+    labels = (f'<text x="{L}" y="{H - 10}" text-anchor="start" font-size="12" fill="#64748b">{t_first.strftime("%d/%m %H:%M")}</text>'
+              f'<text x="{W - R}" y="{H - 10}" text-anchor="end" font-size="12" fill="#64748b">{t_last.strftime("%d/%m %H:%M")}</text>')
+
+    svg = (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;max-height:340px;" xmlns="http://www.w3.org/2000/svg">'
+           f'{grid}<polygon points="{area}" fill="{color}" fill-opacity="0.35"/>'
+           f'<polyline points="{line}" fill="none" stroke="{color}" stroke-width="2"/>{labels}</svg>')
+    st.markdown(svg, unsafe_allow_html=True)
+
+
 HEADER_COLORS = ["#f87171", "#a855f7", "#38bdf8", "#ec4899", "#3b82f6", "#10b981"]
 
 # ==========================================
@@ -713,7 +759,11 @@ with tab2:
             st.subheader("📈 แนวโน้มกำลังการผลิต (Generator Output)")
             if 'generator_output' in filtered_df.columns:
                 chart_data = filtered_df.set_index('created_at')['generator_output']
-                st.area_chart(chart_data, color="#3b82f6")
+                try:
+                    st.area_chart(chart_data, color="#3b82f6")
+                except Exception:
+                    # ถ้าไลบรารีกราฟของ Streamlit (altair) ใช้ไม่ได้บนเซิร์ฟเวอร์ ให้วาดกราฟสำรองแทน
+                    render_area_chart(chart_data)
             else:
                 st.info("ไม่พบข้อมูล Generator Output สำหรับสร้างกราฟ")
 
