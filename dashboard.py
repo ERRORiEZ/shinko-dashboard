@@ -923,8 +923,7 @@ def get_upload_store():
 with tab3:
     st.subheader("📂 อัปโหลดไฟล์ Excel ของคุณเพื่อแสดงตารางข้อมูล")
     st.markdown(
-        "ลากไฟล์ Excel (`.xlsx`) หรือ `.csv` มาวางด้านล่างนี้ ระบบจะอ่านชื่อหัวตารางจากไฟล์และแสดงเป็นตารางให้ "
-        "(ถ้าไฟล์มีหัวรายงานอยู่ด้านบน ระบบจะหาแถวหัวตารางให้เอง)"
+        "ลากไฟล์ Excel (`.xlsx`) หรือ (`.csv`) มาวางด้านล่างนี้ ระบบจะอ่านชื่อหัวตารางจากไฟล์และแสดงเป็นตารางให้ "
     )
 
     # เก็บไฟล์ไว้ในหน่วยความจำของเซิร์ฟเวอร์ เพื่อให้กด F5 แล้วไฟล์ยังอยู่ จนกว่าจะกดปุ่ม "ล้างไฟล์"
@@ -943,8 +942,8 @@ with tab3:
 
     if upload_store.get("data") is not None:
         c_info, c_btn = st.columns([4, 1])
-        c_info.caption(f"📄 ไฟล์ที่แสดงอยู่: {upload_store['name']} (ยังอยู่แม้รีเฟรชหน้า จนกว่าจะกดล้างไฟล์)")
-        if c_btn.button("🗑️ ล้างไฟล์", use_container_width=True):
+        c_info.caption(f"📄 ไฟล์ที่แสดงอยู่: {upload_store['name']} ")
+        if c_btn.button("🗑️ ล้างไฟล์ที่แสดงอยู่", use_container_width=True):
             upload_store.clear()
             st.session_state["uploader_key"] += 1  # เปลี่ยน key เพื่อล้างช่องอัปโหลดด้วย
             st.rerun()
