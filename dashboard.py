@@ -952,14 +952,14 @@ with tab3:
             with st.spinner("กำลังอ่านไฟล์..."):
                 up_df = load_uploaded_table(upload_store["name"], upload_store["data"])
             if up_df.empty:
-                st.warning("อ่านไฟล์ได้ แต่ไม่พบข้อมูลในตาราง")
+                st.warning("อ่านไฟล์ได้ แต่ไม่พบข้อมูล")
             else:
                 st.success(f"อ่านไฟล์สำเร็จ: {len(up_df):,} แถว {len(up_df.columns):,} คอลัมน์")
                 st.dataframe(up_df, use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
     else:
-        st.info("💡 ยังไม่ได้อัปโหลดไฟล์ กรุณาเลือกไฟล์ Excel ในช่องด้านบนเพื่อดูตาราง")
+        st.info("💡 ยังไม่ได้อัปโหลดไฟล์ กรุณาอัปโหลดไฟล์ Excel ในช่องด้านบน")
 
 # ==========================================
 # กล่องแจ้งเตือนลอย (แสดงทุกแท็บ มุมขวาล่าง)
